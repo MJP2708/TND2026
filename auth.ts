@@ -4,9 +4,16 @@ import Google from "next-auth/providers/google";
 
 const hasGoogle =
   Boolean(process.env.GOOGLE_CLIENT_ID) && Boolean(process.env.GOOGLE_CLIENT_SECRET);
+const demoAuthEnabled =
+  process.env.NODE_ENV !== "production" || process.env.DEMO_AUTH_ENABLED === "true";
+const authSecret =
+  process.env.AUTH_SECRET ??
+  process.env.NEXTAUTH_SECRET ??
+  // Local competition demo fallback only. Production should define AUTH_SECRET.
+  (demoAuthEnabled ? "thrivetown-local-demo-secret-do-not-use-in-production" : undefined);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  secret: authSecret,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
@@ -19,25 +26,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ]
       : []),
     Credentials({
-      name: "Demo account",
+      name: "Email and password",
       credentials: {
-        name: { label: "Name", type: "text" },
         email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         const email = String(credentials?.email ?? "").trim().toLowerCase();
-        const name = String(credentials?.name ?? "").trim();
+        const password = String(credentials?.password ?? "");
 
-        if (!email || !email.includes("@")) return null;
+        // Competition demo only. Enable in production deliberately with
+        // DEMO_AUTH_ENABLED=true; never use this as a real password system.
+        if (demoAuthEnabled && email === "demo@tycoon.app" && password === "demo1234") {
+          return {
+            id: "demo-tycoon-user",
+            email,
+            name: "Demo Tycoon",
+            image: "/avatar.svg",
+          };
+        }
 
-        return {
-          id: email,
-          email,
-          name: name || email.split("@")[0],
-          image: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-            name || email,
-          )}`,
-        };
+        return null;
       },
     }),
   ],
@@ -54,4 +63,3 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
-

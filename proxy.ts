@@ -13,8 +13,14 @@ const privateRoutes = [
   "/friends",
   "/mood",
   "/settings",
-  "/onboarding",
 ];
+const demoAuthEnabled =
+  process.env.NODE_ENV !== "production" || process.env.DEMO_AUTH_ENABLED === "true";
+const authSecret =
+  process.env.AUTH_SECRET ??
+  process.env.NEXTAUTH_SECRET ??
+  // Local competition demo fallback only. Production should define AUTH_SECRET.
+  (demoAuthEnabled ? "thrivetown-local-demo-secret-do-not-use-in-production" : undefined);
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -23,7 +29,7 @@ export async function proxy(request: NextRequest) {
   );
   const token = await getToken({
     req: request,
-    secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+    secret: authSecret,
   });
 
   if (isPrivate && !token) {
@@ -42,7 +48,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/login",
-    "/onboarding/:path*",
     "/dashboard/:path*",
     "/planner/:path*",
     "/timetable/:path*",
@@ -55,4 +60,3 @@ export const config = {
     "/settings/:path*",
   ],
 };
-
