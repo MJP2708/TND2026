@@ -1,46 +1,104 @@
-import { generatePlan } from "./mock-ai-planner";
-import type { AppState, OnboardingProfile } from "./types";
+import type { AppState, Business, Goal } from "./types";
+import { generatePlan } from "./ai-planner";
 
-export const defaultProfile: OnboardingProfile = {
-  mainGoal: "Prepare a calm, consistent exam/work sprint",
-  deadline: new Date(Date.now() + 1000 * 60 * 60 * 24 * 28).toISOString().slice(0, 10),
+const deadline = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 28);
+  return d.toISOString().slice(0, 10);
+})();
+
+export const DEMO_GOAL: Goal = {
+  id: "goal-demo",
+  title: "Prepare for final exam",
+  deadline,
   dailyHours: 3,
   energy: "balanced",
-  difficulty: "standard",
-  wellnessBaseline: ["Sleep has been uneven", "I want kinder planning"],
+  difficulty: 3,
+  category: "study",
+  createdAt: new Date().toISOString(),
 };
 
-export function createInitialState(): AppState {
-  const tasks = generatePlan(defaultProfile);
-  tasks[0] = { ...tasks[0], status: "completed", completion: 100, focusMinutes: tasks[0].minutes };
-  tasks[1] = { ...tasks[1], status: "partial", completion: 55, focusMinutes: Math.round(tasks[1].minutes * 0.55) };
+const BUSINESSES: Business[] = [
+  {
+    id: "b-coffee",
+    name: "Coffee Shop",
+    icon: "☕",
+    description: "A cozy corner cafe that rewards deep work.",
+    benefit: "+5 Gold per focus session",
+    level: 1,
+    baseCost: 200,
+  },
+  {
+    id: "b-farm",
+    name: "Farm",
+    icon: "🌾",
+    description: "A small productive farm that grows with consistency.",
+    benefit: "+8 XP each day you study",
+    level: 0,
+    baseCost: 150,
+  },
+  {
+    id: "b-tech",
+    name: "Tech Studio",
+    icon: "💻",
+    description: "A focused studio for deep technical work.",
+    benefit: "+10 Gold per completed task",
+    level: 0,
+    baseCost: 350,
+  },
+  {
+    id: "b-books",
+    name: "Bookstore",
+    icon: "📚",
+    description: "A knowledge hub that compounds your learning.",
+    benefit: "−5% estimated task time",
+    level: 0,
+    baseCost: 250,
+  },
+];
+
+export function createDemoState(): AppState {
+  const tasks = generatePlan(DEMO_GOAL);
+
+  if (tasks[0]) {
+    tasks[0].status = "completed";
+    tasks[0].completion = 100;
+    tasks[0].focusMinutes = tasks[0].minutes;
+  }
+  if (tasks[1]) {
+    tasks[1].status = "partial";
+    tasks[1].completion = 50;
+    tasks[1].focusMinutes = Math.round(tasks[1].minutes / 2);
+  }
 
   return {
-    profile: defaultProfile,
+    userId: "demo",
+    displayName: "Student",
+    goal: DEMO_GOAL,
     tasks,
     gold: 760,
-    xp: 420,
-    level: 3,
+    xp: 1240,
+    level: 4,
+    streak: 5,
     focusMinutes: 185,
-    streak: 4,
+    houseLevel: 2,
+    businesses: BUSINESSES,
     rewards: [
-      { id: "reward-netflix", title: "Watch Netflix 1 hour", cost: 500, note: "Evening recovery block" },
-      { id: "reward-game", title: "Play game 30 minutes", cost: 300, note: "Use after today's focus" },
-      { id: "reward-cafe", title: "Cafe drink budget", cost: 650, note: "Weekend treat" },
+      { id: "r1", title: "Watch one episode", cost: 250, note: "A well-earned break." },
+      { id: "r2", title: "Order favourite food", cost: 500, note: "You deserve it." },
+      { id: "r3", title: "Free afternoon off", cost: 800, note: "No guilt, full rest." },
     ],
     vouchers: [],
-    businesses: [
-      { id: "coffee", name: "Coffee shop", description: "Converts morning focus into steady income", level: 2, baseCost: 420, icon: "Cup" },
-      { id: "farm", name: "Focus farm", description: "Rewards consistency and partial wins", level: 1, baseCost: 360, icon: "Sprout" },
-      { id: "tech", name: "Tech company", description: "High-cost upgrades for deep work streaks", level: 0, baseCost: 900, icon: "Cpu" },
-      { id: "bookstore", name: "Bookstore", description: "Grows with review sessions and reflection", level: 1, baseCost: 520, icon: "BookOpen" },
-    ],
-    houseLevel: 2,
     moods: [
-      { id: "mood-1", date: new Date(Date.now() - 86400000 * 2).toISOString(), tone: "tired", answers: ["Low energy", "Heavy workload"], goldAwarded: 25 },
-      { id: "mood-2", date: new Date(Date.now() - 86400000).toISOString(), tone: "steady", answers: ["Okay focus", "Needed breaks"], goldAwarded: 25 },
+      {
+        id: "m1",
+        date: new Date(Date.now() - 86_400_000).toISOString(),
+        tone: "steady",
+        answers: ["Okay", "Manageable", "Start small"],
+        goldAwarded: 25,
+      },
     ],
-    acceptedTodayAdjustment: false,
+    hasOnboarded: true,
+    lastActiveDate: new Date().toISOString().slice(0, 10),
   };
 }
-

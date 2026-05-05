@@ -1,33 +1,46 @@
-export type EnergyPreference = "low" | "balanced" | "high";
-export type DifficultyPreference = "gentle" | "standard" | "ambitious";
+export type EnergyLevel = "low" | "balanced" | "high";
+export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
 export type TaskStatus = "pending" | "partial" | "completed";
 export type MoodTone = "rested" | "steady" | "tired" | "overloaded";
+export type GoalCategory = "study" | "career" | "creative" | "health" | "personal" | "other";
 
-export type OnboardingProfile = {
-  mainGoal: string;
-  deadline: string;
+export type Goal = {
+  id: string;
+  title: string;
+  deadline: string; // YYYY-MM-DD
   dailyHours: number;
-  energy: EnergyPreference;
-  difficulty: DifficultyPreference;
-  wellnessBaseline: string[];
+  energy: EnergyLevel;
+  difficulty: DifficultyLevel;
+  category: GoalCategory;
+  createdAt: string;
 };
 
-export type PlannedTask = {
+export type Task = {
   id: string;
-  day: string;
+  day: string; // YYYY-MM-DD
   title: string;
   category: string;
   minutes: number;
-  difficulty: number;
+  difficulty: DifficultyLevel;
   gold: number;
   xp: number;
   status: TaskStatus;
-  completion: number;
+  completion: number; // 0–100
   focusMinutes: number;
-  recoveryAfter: number;
+  isRecovery?: boolean;
 };
 
-export type RewardItem = {
+export type Business = {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  benefit: string;
+  level: number;
+  baseCost: number;
+};
+
+export type Reward = {
   id: string;
   title: string;
   cost: number;
@@ -42,15 +55,6 @@ export type Voucher = {
   createdAt: string;
 };
 
-export type Business = {
-  id: string;
-  name: string;
-  description: string;
-  level: number;
-  baseCost: number;
-  icon: string;
-};
-
 export type MoodEntry = {
   id: string;
   date: string;
@@ -60,18 +64,20 @@ export type MoodEntry = {
 };
 
 export type AppState = {
-  profile: OnboardingProfile;
-  tasks: PlannedTask[];
+  userId: string;
+  displayName: string;
+  goal: Goal | null;
+  tasks: Task[];
   gold: number;
   xp: number;
   level: number;
-  focusMinutes: number;
   streak: number;
-  rewards: RewardItem[];
-  vouchers: Voucher[];
-  businesses: Business[];
+  focusMinutes: number;
   houseLevel: number;
+  businesses: Business[];
+  rewards: Reward[];
+  vouchers: Voucher[];
   moods: MoodEntry[];
-  acceptedTodayAdjustment: boolean;
+  hasOnboarded: boolean;
+  lastActiveDate: string;
 };
-

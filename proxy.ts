@@ -1,46 +1,32 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const privateRoutes = [
+const PRIVATE = [
   "/dashboard",
-  "/planner",
-  "/timetable",
+  "/plan",
   "/focus",
-  "/game",
+  "/progress",
   "/rewards",
-  "/neighborhood",
-  "/friends",
   "/mood",
+  "/community",
   "/settings",
+  "/onboarding",
 ];
-const demoAuthEnabled =
-  process.env.NODE_ENV !== "production" || process.env.DEMO_AUTH_ENABLED === "true";
-const authSecret =
-  process.env.AUTH_SECRET ??
-  process.env.NEXTAUTH_SECRET ??
-  // Local competition demo fallback only. Production should define AUTH_SECRET.
-  (demoAuthEnabled ? "thrivetown-local-demo-secret-do-not-use-in-production" : undefined);
 
-export async function proxy(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isPrivate = privateRoutes.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  const authed = request.cookies.has("tf_session");
+  const isPrivate = PRIVATE.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
-  const token = await getToken({ req: request, secret: authSecret }).catch((error) => {
-    console.error("[auth] Proxy token check failed safely", {
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-    return null;
-  });
 
-  if (isPrivate && !token) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
-    return NextResponse.redirect(loginUrl);
+  if (isPrivate && !authed) {
+    const url = new URL("/login", request.url);
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
   }
 
-  if (pathname === "/login" && token) {
+  if (pathname === "/login" && authed) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -51,14 +37,13 @@ export const config = {
   matcher: [
     "/login",
     "/dashboard/:path*",
-    "/planner/:path*",
-    "/timetable/:path*",
+    "/plan/:path*",
     "/focus/:path*",
-    "/game/:path*",
+    "/progress/:path*",
     "/rewards/:path*",
-    "/neighborhood/:path*",
-    "/friends/:path*",
     "/mood/:path*",
+    "/community/:path*",
     "/settings/:path*",
+    "/onboarding/:path*",
   ],
 };

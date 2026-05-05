@@ -1,6 +1,5 @@
-import { AppPage } from "@/components/app-client";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return <AppPage view="planner" />;
+export default function PlannerRedirect() {
+  redirect("/plan");
 }
-
