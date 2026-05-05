@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { calculateReward, generatePlan } from "@/lib/mock-ai-planner";
@@ -104,6 +105,7 @@ function useAppState() {
 }
 
 export function LoginPage({ hasGoogle = false }: { hasGoogle?: boolean }) {
+  const router = useRouter();
   const [email, setEmail] = useState("demo@tycoon.app");
   const [password, setPassword] = useState("demo1234");
   const [loading, setLoading] = useState(false);
@@ -112,18 +114,25 @@ export function LoginPage({ hasGoogle = false }: { hasGoogle?: boolean }) {
   async function loginWith(emailValue = email, passwordValue = password) {
     setLoading(true);
     setError("");
-    const result = await signIn("credentials", {
-      email: emailValue,
-      password: passwordValue,
-      redirect: false,
-      callbackUrl: "/dashboard",
-    });
-    setLoading(false);
-    if (result?.error) {
-      setError("Login failed. Try the demo account below.");
-      return;
+    try {
+      const result = await signIn("credentials", {
+        email: emailValue,
+        password: passwordValue,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Login failed. Try demo@tycoon.app with password demo1234.");
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setError("Something went wrong while signing in. Please try the demo account.");
+    } finally {
+      setLoading(false);
     }
-    window.location.href = "/dashboard";
   }
 
   return (
@@ -258,15 +267,20 @@ function Sidebar({ view }: { view: View }) {
 }
 
 function MobileNav({ view }: { view: View }) {
-  const primaryItems = flatNav.filter((item) =>
-    ["dashboard", "planner", "focus", "game", "mood"].includes(item.view),
-  );
+  const navItems = [
+    { href: "/dashboard", label: "Home",  icon: "🏠", view: "dashboard" as View },
+    { href: "/planner",   label: "Plan",  icon: "📝", view: "planner"   as View },
+    { href: "/focus",     label: "Focus", icon: "⏱",  view: "focus"     as View },
+    { href: "/game",      label: "City",  icon: "🏙",  view: "game"      as View },
+    { href: "/mood",      label: "Mood",  icon: "💚", view: "mood"      as View },
+  ];
 
   return (
     <nav className="mobile-nav" aria-label="Mobile navigation">
-      {primaryItems.map((item) => (
+      {navItems.map((item) => (
         <Link key={item.href} href={item.href} className={view === item.view ? "active" : ""}>
-          {item.short}
+          <span className="nav-icon">{item.icon}</span>
+          <span className="nav-label">{item.label}</span>
         </Link>
       ))}
     </nav>

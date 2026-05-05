@@ -27,9 +27,11 @@ export async function proxy(request: NextRequest) {
   const isPrivate = privateRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
-  const token = await getToken({
-    req: request,
-    secret: authSecret,
+  const token = await getToken({ req: request, secret: authSecret }).catch((error) => {
+    console.error("[auth] Proxy token check failed safely", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
+    return null;
   });
 
   if (isPrivate && !token) {

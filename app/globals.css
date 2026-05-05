@@ -41,6 +41,8 @@ body {
     linear-gradient(180deg, #fbf7f0, #f5f1ea);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
@@ -839,39 +841,52 @@ label {
   }
 
   .main-panel {
-    padding-bottom: 88px;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    padding-left: max(18px, env(safe-area-inset-left));
+    padding-right: max(18px, env(safe-area-inset-right));
   }
 
   .mobile-nav {
     position: fixed;
-    right: 14px;
-    bottom: 14px;
-    left: 14px;
+    right: 0;
+    bottom: 0;
+    left: 0;
     z-index: 20;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 6px;
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    padding: 8px;
-    background: rgba(255, 253, 248, 0.94);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(16px);
+    gap: 2px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: rgba(255, 253, 248, 0.96);
+    box-shadow: 0 -1px 0 var(--line);
+    backdrop-filter: blur(20px);
   }
 
   .mobile-nav a {
-    display: grid;
-    place-items: center;
-    min-height: 42px;
-    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 52px;
+    border-radius: 12px;
     color: var(--muted);
-    font-size: 0.82rem;
-    font-weight: 850;
+    transition: background 120ms ease, color 120ms ease;
   }
 
   .mobile-nav a.active {
     background: #edf5ef;
     color: var(--primary-strong);
+  }
+
+  .nav-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  .nav-label {
+    font-size: 0.67rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
   }
 
   .stats-grid,
@@ -883,10 +898,40 @@ label {
 }
 
 @media (max-width: 700px) {
-  .login-hero,
-  .login-card,
+  /* Show login form before the hero on small phones */
+  .login-shell {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .login-card {
+    order: -1;
+    padding: 20px 18px;
+  }
+
+  .login-hero {
+    order: 1;
+    padding: 24px 18px 28px;
+  }
+
+  .login-hero h1 {
+    font-size: 2.4rem;
+    margin: 8px 0;
+  }
+
+  .hero-copy,
+  .preview-grid {
+    display: none;
+  }
+
   .main-panel {
-    padding: 18px;
+    padding-top: max(18px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  .page-header h1 {
+    font-size: 1.9rem;
   }
 
   .goal-card,

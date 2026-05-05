@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
+import type { NextAuthConfig } from "next-auth";
 
 const hasGoogle =
   Boolean(process.env.GOOGLE_CLIENT_ID) && Boolean(process.env.GOOGLE_CLIENT_SECRET);
@@ -12,8 +13,9 @@ const authSecret =
   // Local competition demo fallback only. Production should define AUTH_SECRET.
   (demoAuthEnabled ? "thrivetown-local-demo-secret-do-not-use-in-production" : undefined);
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const authOptions = {
   secret: authSecret,
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
@@ -32,34 +34,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = String(credentials?.email ?? "").trim().toLowerCase();
-        const password = String(credentials?.password ?? "");
+        try {
+          const email = String(credentials?.email ?? "").trim().toLowerCase();
+          const password = String(credentials?.password ?? "");
 
-        // Competition demo only. Enable in production deliberately with
-        // DEMO_AUTH_ENABLED=true; never use this as a real password system.
-        if (demoAuthEnabled && email === "demo@tycoon.app" && password === "demo1234") {
-          return {
-            id: "demo-tycoon-user",
-            email,
-            name: "Demo Tycoon",
-            image: "/avatar.svg",
-          };
+          // Competition demo only. Enable in production deliberately with
+          // DEMO_AUTH_ENABLED=true; never use this as a real password system.
+          if (demoAuthEnabled && email === "demo@tycoon.app" && password === "demo1234") {
+            return {
+              id: "demo-user",
+              email: "demo@tycoon.app",
+              name: "Demo User",
+              image: null,
+            };
+          }
+
+          return null;
+        } catch (error) {
+          console.error("[auth] Demo credentials authorize failed safely", {
+            message: error instanceof Error ? error.message : "Unknown error",
+          });
+          return null;
         }
-
-        return null;
       },
     }),
   ],
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user?.id) token.id = user.id;
       return token;
     },
     session({ session, token }) {
       if (session.user) {
-        session.user.id = String(token.id ?? token.email ?? "demo-user");
+        session.user.id = String(token?.id ?? token?.email ?? "demo-user");
       }
       return session;
     },
   },
-});
+} satisfies NextAuthConfig;
+
+export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);
