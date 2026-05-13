@@ -131,7 +131,7 @@ export default function FocusPage() {
           <div className="card card-lg" style={{ textAlign: "center" }}>
             <div className="stack gap-16" style={{ alignItems: "center" }}>
               <span style={{ fontSize: "3rem" }}>🎉</span>
-              <h2 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 900 }}>Session complete!</h2>
+              <h2 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 900 }}>You crushed it!</h2>
               <p style={{ margin: 0, color: "var(--color-muted)", fontSize: "0.875rem" }}>
                 {task.title}
               </p>
@@ -150,7 +150,7 @@ export default function FocusPage() {
                 </div>
               </div>
               <button className="btn btn-primary btn-lg" onClick={reset} style={{ width: "100%" }}>
-                Start another session
+                Start another session ▶
               </button>
             </div>
           </div>
@@ -164,9 +164,9 @@ export default function FocusPage() {
       <AppShell currentRoute="/focus">
         <div className="empty-state" style={{ paddingTop: 80 }}>
           <span style={{ fontSize: "2.5rem" }}>🏆</span>
-          <p style={{ margin: "12px 0 0", fontWeight: 700 }}>All tasks are done!</p>
+          <p style={{ margin: "12px 0 0", fontWeight: 700 }}>All tasks are done — nice work!</p>
           <p style={{ margin: "6px 0 0", color: "var(--color-muted)", fontSize: "0.875rem" }}>
-            Head to the Plan tab to see your full progress.
+            Rest up. You&apos;ve earned it 🌙
           </p>
         </div>
       </AppShell>
@@ -178,8 +178,8 @@ export default function FocusPage() {
   return (
     <AppShell currentRoute="/focus">
       <div className="page-header">
-        <h1 className="page-title">Focus session</h1>
-        <p className="page-subtitle">One task. One block. Full rewards when done.</p>
+        <h1 className="page-title">Deep Focus ⏱</h1>
+        <p className="page-subtitle">Pick a task, close the noise, earn your rewards.</p>
       </div>
 
       <div style={{ maxWidth: 520, margin: "0 auto" }}>
@@ -305,7 +305,7 @@ export default function FocusPage() {
           {/* Tip */}
           {phase === "idle" && (
             <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-muted)", textAlign: "center", lineHeight: 1.6 }}>
-              Put your phone face-down. Close other tabs. One session at a time.
+              Close other tabs, put your phone down. You&apos;ve got this 💪
             </p>
           )}
         </div>

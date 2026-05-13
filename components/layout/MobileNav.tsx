@@ -3,11 +3,11 @@
 import Link from "next/link";
 
 const NAV = [
-  { href: "/dashboard", icon: "🏠", label: "Home"     },
-  { href: "/plan",      icon: "📋", label: "Plan"     },
-  { href: "/focus",     icon: "⏱",  label: "Focus"    },
-  { href: "/progress",  icon: "🏙",  label: "Progress" },
-  { href: "/mood",      icon: "💚",  label: "Mood"    },
+  { href: "/dashboard", icon: "🏠", label: "Home"    },
+  { href: "/plan",      icon: "📋", label: "Plan"    },
+  { href: "/focus",     icon: "⏱",  label: "Focus"   },
+  { href: "/rewards",   icon: "🎁",  label: "Rewards" },
+  { href: "/mood",      icon: "💚",  label: "Mood"   },
 ];
 
 export function MobileNav({ currentRoute }: { currentRoute: string }) {

@@ -113,8 +113,8 @@ export default function MoodPage() {
   return (
     <AppShell currentRoute="/mood">
       <div className="page-header">
-        <h1 className="page-title">Mood check-in</h1>
-        <p className="page-subtitle">3 quick questions. Earn 25 Gold. No guilt.</p>
+        <h1 className="page-title">How are you feeling? 💚</h1>
+        <p className="page-subtitle">3 quick questions. Earn 25 Gold. No guilt, ever.</p>
       </div>
 
       <div style={{ maxWidth: 480, margin: "0 auto" }}>
@@ -149,7 +149,7 @@ export default function MoodPage() {
               {checkedToday ? (
                 <div className="stack gap-12" style={{ alignItems: "center", textAlign: "center" }}>
                   <span style={{ fontSize: "2rem" }}>✅</span>
-                  <p style={{ margin: 0, fontWeight: 800 }}>Already checked in today</p>
+                  <p style={{ margin: 0, fontWeight: 800 }}>You already checked in today 🌱</p>
                   {latestTone && (
                     <p style={{ margin: 0, color: "var(--color-muted)", fontSize: "0.875rem" }}>
                       Feeling {latestTone.icon} {latestTone.label} · +25 Gold earned
@@ -255,8 +255,8 @@ export default function MoodPage() {
 
           {/* Disclaimer */}
           <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--color-muted)", textAlign: "center", lineHeight: 1.6 }}>
-            This is a simple wellbeing nudge, not a clinical tool.
-            If you&apos;re struggling, please talk to someone you trust.
+            This is a simple wellbeing nudge — not a clinical tool. If you&apos;re having
+            a tough time, please reach out to someone you trust. You matter 🤍
           </p>
         </div>
       </div>

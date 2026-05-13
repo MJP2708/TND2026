@@ -74,9 +74,9 @@ export default function RewardsPage() {
   return (
     <AppShell currentRoute="/rewards">
       <div className="page-header">
-        <h1 className="page-title">Rewards</h1>
+        <h1 className="page-title">Rewards 🎁</h1>
         <p className="page-subtitle">
-          Spend your Gold on real rewards you set for yourself.
+          Spend your Gold on treats you actually care about. You&apos;ve earned them.
         </p>
       </div>
 
@@ -96,14 +96,14 @@ export default function RewardsPage() {
         >
           <div>
             <p style={{ margin: 0, fontSize: "0.7rem", fontWeight: 800, opacity: 0.7, textTransform: "uppercase", letterSpacing: ".07em" }}>
-              Gold balance
+              Your gold stash
             </p>
             <p style={{ margin: "4px 0 0", fontSize: "2rem", fontWeight: 900 }}>
               💰 {state.gold}
             </p>
           </div>
           <p style={{ margin: 0, fontSize: "0.82rem", opacity: 0.7, maxWidth: 160, textAlign: "right", lineHeight: 1.5 }}>
-            Earned through focus sessions and mood check-ins.
+            Earned through focus sessions &amp; mood check-ins.
           </p>
         </div>
 
@@ -139,10 +139,10 @@ export default function RewardsPage() {
 
         {/* Available rewards */}
         <div>
-          <p className="section-label">Available rewards</p>
+          <p className="section-label">Your treats</p>
           {state.rewards.length === 0 ? (
             <div className="empty-state" style={{ padding: "24px 0" }}>
-              <p>No rewards yet. Create one below.</p>
+              <p>No rewards yet — add something you&apos;ll look forward to 🎁</p>
             </div>
           ) : (
             <div className="stack gap-10">
@@ -189,7 +189,7 @@ export default function RewardsPage() {
 
         {/* Create reward */}
         <div>
-          <p className="section-label">Create a reward</p>
+          <p className="section-label">Add a new treat for yourself</p>
           <div className="card">
             <div className="stack gap-14">
               <div className="form-group">
@@ -234,7 +234,7 @@ export default function RewardsPage() {
                 disabled={!title.trim()}
                 onClick={addReward}
               >
-                + Add reward
+                🎁 Add to my treats
               </button>
             </div>
           </div>
