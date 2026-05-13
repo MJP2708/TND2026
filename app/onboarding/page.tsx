@@ -228,7 +228,8 @@ function StepConfirm({
   form: { title: string; deadline: string; dailyHours: number; energy: string; difficulty: number };
   loading: boolean; onBack: () => void; onGenerate: () => void;
 }) {
-  const days = Math.max(1, Math.ceil((new Date(form.deadline).getTime() - Date.now()) / 86_400_000));
+  const [todayMs] = useState(() => Date.now());
+  const days = Math.max(1, Math.ceil((new Date(form.deadline).getTime() - todayMs) / 86_400_000));
   return (
     <div className="stack gap-20">
       <div className="card" style={{ background: "var(--color-primary-soft)", borderColor: "rgba(45,106,97,.25)" }}>

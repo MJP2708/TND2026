@@ -8,14 +8,14 @@ import { useStore } from "@/lib/store";
 
 function nav(copy: ReturnType<typeof getCopy>) {
   return [
-    { href: "/dashboard", icon: "Home", label: copy.dashboard },
-    { href: "/plan", icon: "List", label: copy.plan },
-    { href: "/focus", icon: "Time", label: copy.focus },
-    { href: "/progress", icon: "Rise", label: copy.progress },
-    { href: "/rewards", icon: "Gift", label: copy.rewards },
-    { href: "/mood", icon: "Care", label: copy.mood },
-    { href: "/community", icon: "Team", label: copy.community },
-    { href: "/settings", icon: "Tune", label: copy.settings },
+    { href: "/dashboard", icon: "🏠", label: copy.dashboard },
+    { href: "/plan", icon: "📋", label: copy.plan },
+    { href: "/focus", icon: "⏱", label: copy.focus },
+    { href: "/progress", icon: "🏙", label: copy.progress },
+    { href: "/rewards", icon: "🎁", label: copy.rewards },
+    { href: "/mood", icon: "💚", label: copy.mood },
+    { href: "/community", icon: "🤝", label: copy.community },
+    { href: "/settings", icon: "⚙️", label: copy.settings },
   ];
 }
 

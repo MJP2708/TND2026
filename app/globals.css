@@ -234,7 +234,7 @@ button, input, select, textarea { font: inherit; }
 }
 .nav-link:hover { background: var(--color-bg); color: var(--color-text); transform: translateX(2px); }
 .nav-link.active { background: var(--color-primary-soft); color: var(--color-primary); font-weight: 700; }
-.nav-link-icon { font-size: 0.62rem; width: 30px; text-align: center; flex-shrink: 0; line-height: 1; font-weight: 900; text-transform: uppercase; color: inherit; }
+.nav-link-icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; line-height: 1; }
 .sidebar-footer {
   padding: 12px 14px;
   border-top: 1px solid var(--color-border);
@@ -527,11 +527,11 @@ button, input, select, textarea { font: inherit; }
   display: flex; align-items: flex-end; gap: 6px;
   padding: 18px 16px 0;
   min-height: 110px;
-  background: linear-gradient(180deg, #E5F3F0 0%, #D9EDE8 55%, #D5E8C8 55%);
+  background: linear-gradient(180deg, var(--color-primary-soft) 0%, var(--color-primary-soft) 55%, var(--color-accent-soft) 55%);
   border-radius: var(--r-xl) var(--r-xl) 0 0;
 }
 .city-ground {
-  background: #C8DDBA;
+  background: color-mix(in srgb, var(--color-accent) 24%, var(--color-surface));
   border-radius: 0 0 var(--r-xl) var(--r-xl);
   height: 18px;
 }
@@ -541,12 +541,12 @@ button, input, select, textarea { font: inherit; }
   transition: height 500ms ease;
 }
 .building-home {
-  background: linear-gradient(180deg, #FFF0C0, #F0C860);
-  border: 1px solid rgba(212,147,14,.3);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-accent) 26%, white), var(--color-accent));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
 }
 .building-biz {
-  background: linear-gradient(180deg, #EBF5FF, #C8DEFF);
-  border: 1px solid rgba(100,160,220,.25);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 14%, white), color-mix(in srgb, var(--color-primary) 34%, white));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 32%, var(--color-border));
 }
 .building-empty {
   background: var(--color-border);
@@ -873,6 +873,21 @@ button, input, select, textarea { font: inherit; }
 .prefs-bar-compact {
   justify-content: flex-end;
 }
+.prefs-bar-compact .segmented-control {
+  grid-template-columns: repeat(2, minmax(48px, 1fr));
+}
+.prefs-bar-compact .select-shell {
+  min-height: 36px;
+  padding: 0 9px;
+}
+.prefs-bar-compact .segmented-control button {
+  min-height: 30px;
+  font-size: .72rem;
+}
+.prefs-bar-compact .select-shell span,
+.prefs-bar-compact .select-shell select {
+  font-size: .72rem;
+}
 .segmented-control {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(58px, 1fr));
@@ -1071,5 +1086,35 @@ button, input, select, textarea { font: inherit; }
     width: 50px;
     padding: 0;
     justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .prefs-bar {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .prefs-bar .segmented-control {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .prefs-bar .select-shell {
+    min-width: 0;
+    justify-content: space-between;
+  }
+  .prefs-bar .select-shell span {
+    font-size: .64rem;
+  }
+  .prefs-bar .select-shell select {
+    min-width: 0;
+    max-width: 84px;
+  }
+  .timer-ring {
+    width: min(300px, 82vw);
+  }
+  .timer-display,
+  .timer-time {
+    font-size: clamp(2.1rem, 15vw, 3.2rem);
   }
 }

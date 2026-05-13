@@ -32,10 +32,6 @@ export default function FocusPage() {
   const task: Task | undefined =
     pendingTasks.find((t) => t.id === selectedId) ?? pendingTasks[0];
 
-  useEffect(() => {
-    if (task && !selectedId) setSelectedId(task.id);
-  }, [task, selectedId]);
-
   const totalSecs = (task?.minutes ?? 25) * 60;
   const remaining = Math.max(0, totalSecs - elapsed);
   const progress = totalSecs > 0 ? elapsed / totalSecs : 0;
@@ -191,7 +187,7 @@ export default function FocusPage() {
               <select
                 id="task-select"
                 className="form-select"
-                value={selectedId}
+                value={task?.id ?? ""}
                 onChange={(e) => setSelectedId(e.target.value)}
               >
                 {pendingTasks.map((t) => (

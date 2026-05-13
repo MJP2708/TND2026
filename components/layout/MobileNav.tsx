@@ -8,11 +8,11 @@ export function MobileNav({ currentRoute }: { currentRoute: string }) {
   const { state } = useStore();
   const copy = getCopy(state.language);
   const nav = [
-    { href: "/dashboard", icon: "Home", label: copy.dashboard },
-    { href: "/plan", icon: "Plan", label: copy.plan },
-    { href: "/focus", icon: "Go", label: copy.focus },
-    { href: "/rewards", icon: "Win", label: copy.rewards },
-    { href: "/settings", icon: "Tune", label: copy.settings },
+    { href: "/dashboard", icon: "🏠", label: copy.dashboard },
+    { href: "/plan", icon: "📋", label: copy.plan },
+    { href: "/focus", icon: "⏱", label: copy.focus },
+    { href: "/rewards", icon: "🎁", label: copy.rewards },
+    { href: "/mood", icon: "💚", label: copy.mood },
   ];
 
   return (

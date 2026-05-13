@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { AppShell } from "@/components/layout/AppShell";
 import { calcReward } from "@/lib/ai-planner";
-import type { Task, DifficultyLevel } from "@/lib/types";
+import type { Task } from "@/lib/types";
 
 type Filter = "all" | "today" | "upcoming";
 
@@ -45,21 +45,21 @@ export default function PlanPage() {
   }
 
   const today = todayKey();
-  const visibleTasks = useMemo(() => {
+  const visibleTasks = (() => {
     const nonRecovery = state.tasks.filter((t) => !t.isRecovery);
     if (filter === "today") return nonRecovery.filter((t) => t.day === today);
     if (filter === "upcoming") return nonRecovery.filter((t) => t.day > today);
     return nonRecovery;
-  }, [state.tasks, filter, today]);
+  })();
 
-  const grouped = useMemo(() => {
+  const grouped = (() => {
     const map = new Map<string, Task[]>();
     for (const t of visibleTasks) {
       if (!map.has(t.day)) map.set(t.day, []);
       map.get(t.day)!.push(t);
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [visibleTasks]);
+  })();
 
   const totalTasks = state.tasks.filter((t) => !t.isRecovery).length;
   const doneTasks = state.tasks.filter((t) => t.status === "completed").length;
