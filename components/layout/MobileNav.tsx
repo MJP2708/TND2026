@@ -1,20 +1,24 @@
 "use client";
 
 import Link from "next/link";
-
-const NAV = [
-  { href: "/dashboard", icon: "🏠", label: "Home"    },
-  { href: "/plan",      icon: "📋", label: "Plan"    },
-  { href: "/focus",     icon: "⏱",  label: "Focus"   },
-  { href: "/rewards",   icon: "🎁",  label: "Rewards" },
-  { href: "/mood",      icon: "💚",  label: "Mood"   },
-];
+import { getCopy } from "@/lib/i18n";
+import { useStore } from "@/lib/store";
 
 export function MobileNav({ currentRoute }: { currentRoute: string }) {
+  const { state } = useStore();
+  const copy = getCopy(state.language);
+  const nav = [
+    { href: "/dashboard", icon: "Home", label: copy.dashboard },
+    { href: "/plan", icon: "Plan", label: copy.plan },
+    { href: "/focus", icon: "Go", label: copy.focus },
+    { href: "/rewards", icon: "Win", label: copy.rewards },
+    { href: "/settings", icon: "Tune", label: copy.settings },
+  ];
+
   return (
     <nav className="mobile-nav" aria-label="Mobile navigation">
       <div className="mobile-nav-grid">
-        {NAV.map((item) => (
+        {nav.map((item) => (
           <Link
             key={item.href}
             href={item.href}

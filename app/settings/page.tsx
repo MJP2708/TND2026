@@ -4,11 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { AppShell } from "@/components/layout/AppShell";
+import { PreferencesBar } from "@/components/layout/PreferencesBar";
 import { logout } from "@/lib/auth";
+import { getCopy } from "@/lib/i18n";
 
 export default function SettingsPage() {
   const router = useRouter();
   const { state, patch, resetDemo, ready } = useStore();
+  const copy = getCopy(state.language);
   const [name, setName] = useState("");
   const [nameEditing, setNameEditing] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -49,6 +52,18 @@ export default function SettingsPage() {
       </div>
 
       <div className="stack gap-28" style={{ maxWidth: 540 }}>
+        <div>
+          <p className="section-label">{copy.appearance}</p>
+          <div className="card">
+            <div className="stack gap-12">
+              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
+                Change the interface tone, dark or light mode, and content language without changing the layout.
+              </p>
+              <PreferencesBar />
+            </div>
+          </div>
+        </div>
+
         {/* Profile */}
         <div>
           <p className="section-label">Profile</p>

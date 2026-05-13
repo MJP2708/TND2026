@@ -100,5 +100,8 @@ export function createDemoState(): AppState {
     ],
     hasOnboarded: true,
     lastActiveDate: new Date().toISOString().slice(0, 10),
+    themeMode: "light",
+    uiTone: "sunrise",
+    language: "en",
   };
 }

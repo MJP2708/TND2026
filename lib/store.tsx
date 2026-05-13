@@ -31,17 +31,34 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(() => createDemoState());
   const [ready, setReady] = useState(false);
 
+  const normalizeState = useCallback((incoming: AppState): AppState => {
+    const defaults = createDemoState();
+    return {
+      ...defaults,
+      ...incoming,
+      themeMode: incoming.themeMode ?? defaults.themeMode,
+      uiTone: incoming.uiTone ?? defaults.uiTone,
+      language: incoming.language ?? defaults.language,
+    };
+  }, []);
+
   useEffect(() => {
     queueMicrotask(() => {
       try {
         const raw = localStorage.getItem(KEY);
-        setState(raw ? (JSON.parse(raw) as AppState) : createDemoState());
+        setState(raw ? normalizeState(JSON.parse(raw) as AppState) : createDemoState());
       } catch {
         setState(createDemoState());
       }
       setReady(true);
     });
-  }, []);
+  }, [normalizeState]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = state.themeMode;
+    document.documentElement.dataset.tone = state.uiTone;
+    document.documentElement.lang = state.language;
+  }, [state.themeMode, state.uiTone, state.language]);
 
   useEffect(() => {
     if (ready) localStorage.setItem(KEY, JSON.stringify(state));

@@ -3,6 +3,9 @@ export type DifficultyLevel = 1 | 2 | 3 | 4 | 5;
 export type TaskStatus = "pending" | "partial" | "completed";
 export type MoodTone = "rested" | "steady" | "tired" | "overloaded";
 export type GoalCategory = "study" | "career" | "creative" | "health" | "personal" | "other";
+export type ThemeMode = "light" | "dark";
+export type UiTone = "classic" | "sunrise" | "ocean" | "mono";
+export type LanguageCode = "en" | "th" | "es";
 
 export type Goal = {
   id: string;
@@ -80,4 +83,7 @@ export type AppState = {
   moods: MoodEntry[];
   hasOnboarded: boolean;
   lastActiveDate: string;
+  themeMode: ThemeMode;
+  uiTone: UiTone;
+  language: LanguageCode;
 };

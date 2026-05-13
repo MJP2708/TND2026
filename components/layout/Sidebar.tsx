@@ -3,23 +3,27 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { logout, getSession } from "@/lib/auth";
+import { getCopy } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 
-const NAV = [
-  { href: "/dashboard", icon: "🏠", label: "Dashboard" },
-  { href: "/plan",      icon: "📋", label: "Plan"      },
-  { href: "/focus",     icon: "⏱",  label: "Focus"     },
-  { href: "/progress",  icon: "🏙",  label: "Progress"  },
-  { href: "/rewards",   icon: "🎁",  label: "Rewards"   },
-  { href: "/mood",      icon: "💚",  label: "Mood"      },
-  { href: "/community", icon: "🤝",  label: "Community" },
-  { href: "/settings",  icon: "⚙️",  label: "Settings"  },
-];
+function nav(copy: ReturnType<typeof getCopy>) {
+  return [
+    { href: "/dashboard", icon: "Home", label: copy.dashboard },
+    { href: "/plan", icon: "List", label: copy.plan },
+    { href: "/focus", icon: "Time", label: copy.focus },
+    { href: "/progress", icon: "Rise", label: copy.progress },
+    { href: "/rewards", icon: "Gift", label: copy.rewards },
+    { href: "/mood", icon: "Care", label: copy.mood },
+    { href: "/community", icon: "Team", label: copy.community },
+    { href: "/settings", icon: "Tune", label: copy.settings },
+  ];
+}
 
 export function Sidebar({ currentRoute }: { currentRoute: string }) {
   const router = useRouter();
   const { state } = useStore();
   const session = getSession();
+  const copy = getCopy(state.language);
 
   function handleLogout() {
     logout();
@@ -31,22 +35,18 @@ export function Sidebar({ currentRoute }: { currentRoute: string }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="brand-mark">TF</div>
+        <div className="brand-mark" aria-hidden="true">
+          <span />
+        </div>
         <div>
-          <strong
-            style={{ fontSize: "0.9rem", fontWeight: 800, display: "block" }}
-          >
-            Tycoon Focus
-          </strong>
-          <span style={{ fontSize: "0.68rem", color: "var(--color-muted)" }}>
-            Daily wins start here ✨
-          </span>
+          <strong>{copy.appName}</strong>
+          <span>{copy.appTagline}</span>
         </div>
       </div>
 
       <nav className="sidebar-nav" aria-label="Main navigation">
-        <p className="nav-group-label">Menu</p>
-        {NAV.map((item) => (
+        <p className="nav-group-label">{copy.menu}</p>
+        {nav(copy).map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -62,46 +62,15 @@ export function Sidebar({ currentRoute }: { currentRoute: string }) {
         <div className="sidebar-user">
           <div className="avatar">{initial}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: "0.82rem",
-                fontWeight: 700,
-                color: "var(--color-text)",
-              }}
-            >
+            <div className="sidebar-user-name">
               {state.displayName || session?.name || "Student"}
             </div>
-            <div style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>
-              Lv {state.level} · 💰 {state.gold}
+            <div className="sidebar-user-meta">
+              Lv {state.level} / {state.gold} Gold
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            title="Log out"
-            style={{
-              background: "none",
-              border: "1px solid var(--color-border)",
-              borderRadius: 8,
-              padding: "3px 9px",
-              fontSize: "0.7rem",
-              color: "var(--color-muted)",
-              cursor: "pointer",
-              flexShrink: 0,
-              transition: "background 100ms, color 100ms",
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.background =
-                "var(--color-bg)";
-              (e.target as HTMLButtonElement).style.color =
-                "var(--color-text)";
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.background = "none";
-              (e.target as HTMLButtonElement).style.color =
-                "var(--color-muted)";
-            }}
-          >
-            ↩
+          <button onClick={handleLogout} title="Log out" className="sidebar-logout">
+            Exit
           </button>
         </div>
       </div>
