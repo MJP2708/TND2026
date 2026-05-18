@@ -1,343 +1,432 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { AppShell } from "@/components/layout/AppShell";
-import { calcReward } from "@/lib/ai-planner";
-import type { Task } from "@/lib/types";
+import { generatePlan } from "@/lib/ai-planner";
+import { FVShell } from "@/components/focusville/FVShell";
+import { Mascot } from "@/components/focusville/Mascot";
+import { ChevronLeft, Calendar, Sparkles, Clock, CheckCircle2 } from "lucide-react";
+import type { Goal, GoalCategory, EnergyLevel, DifficultyLevel } from "@/lib/types";
 
-type Filter = "all" | "today" | "upcoming";
+type Step = "goal" | "planning" | "plan";
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
-}
+const CATEGORY_ICONS: Record<GoalCategory, string> = {
+  study:    "📚",
+  career:   "💼",
+  creative: "🎨",
+  health:   "💪",
+  personal: "🌱",
+  other:    "✨",
+};
 
-function formatDay(day: string) {
-  const today = todayKey();
-  const tomorrow = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
-  })();
-  if (day === today) return "Today";
-  if (day === tomorrow) return "Tomorrow";
-  return new Date(day).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-}
-
-function diffLabel(d: number) {
-  return ["Gentle", "Easy", "Standard", "Hard", "Max"][d - 1] ?? "Standard";
+function groupByCategory(tasks: ReturnType<typeof generatePlan>) {
+  const map = new Map<string, { count: number; minutes: number }>();
+  for (const t of tasks) {
+    if (t.isRecovery) continue;
+    const e = map.get(t.category) ?? { count: 0, minutes: 0 };
+    e.count++;
+    e.minutes += t.minutes;
+    map.set(t.category, e);
+  }
+  return Array.from(map.entries()).map(([cat, v]) => ({ cat, ...v }));
 }
 
 export default function PlanPage() {
   const { state, patch, ready } = useStore();
-  const [filter, setFilter] = useState<Filter>("all");
-  const [expandedTask, setExpandedTask] = useState<string | null>(null);
-  const [sliders, setSliders] = useState<Record<string, number>>({});
+  const router = useRouter();
+
+  const [step, setStep] = useState<Step>(state.goal ? "plan" : "goal");
+  const [goalText, setGoalText] = useState(state.goal?.title ?? "");
+  const [deadline, setDeadline] = useState(state.goal?.deadline ?? (() => {
+    const d = new Date(); d.setDate(d.getDate() + 30);
+    return d.toISOString().slice(0, 10);
+  })());
+  const [energy, setEnergy] = useState<EnergyLevel>("balanced");
+  const [category, setCategory] = useState<GoalCategory>("study");
+  const [generating, setGenerating] = useState(false);
+  const [previewTasks, setPreviewTasks] = useState(state.tasks);
+
+  const totalTasks  = state.tasks.filter((t) => !t.isRecovery).length;
+  const doneTasks   = state.tasks.filter((t) => t.status === "completed").length;
+  const progress    = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const totalHours  = Math.round(state.tasks.reduce((s, t) => s + t.minutes, 0) / 60);
+  const grouped     = groupByCategory(state.tasks);
 
   if (!ready) {
     return (
-      <AppShell currentRoute="/plan">
-        <div className="empty-state" style={{ paddingTop: 80 }}>
-          <p>Loading plan…</p>
+      <FVShell>
+        <div className="fv-loading">
+          <Mascot size={60} mood="idle" float />
+          <p style={{ color: "#6B7A99", fontSize: "0.85rem" }}>Loading your plan…</p>
         </div>
-      </AppShell>
+      </FVShell>
     );
   }
 
-  const today = todayKey();
-  const visibleTasks = (() => {
-    const nonRecovery = state.tasks.filter((t) => !t.isRecovery);
-    if (filter === "today") return nonRecovery.filter((t) => t.day === today);
-    if (filter === "upcoming") return nonRecovery.filter((t) => t.day > today);
-    return nonRecovery;
-  })();
-
-  const grouped = (() => {
-    const map = new Map<string, Task[]>();
-    for (const t of visibleTasks) {
-      if (!map.has(t.day)) map.set(t.day, []);
-      map.get(t.day)!.push(t);
-    }
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
-  })();
-
-  const totalTasks = state.tasks.filter((t) => !t.isRecovery).length;
-  const doneTasks = state.tasks.filter((t) => t.status === "completed").length;
-  const planPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-
-  function markComplete(task: Task) {
-    patch((s) => {
-      const reward = calcReward(task.difficulty, task.minutes, 100);
-      return {
-        ...s,
-        gold: s.gold + reward.gold,
-        xp: s.xp + reward.xp,
-        tasks: s.tasks.map((t) =>
-          t.id === task.id ? { ...t, status: "completed", completion: 100 } : t
-        ),
-      };
-    });
-    setExpandedTask(null);
-  }
-
-  function markPartial(task: Task) {
-    const pct = sliders[task.id] ?? 50;
-    const reward = calcReward(task.difficulty, task.minutes, pct);
-    patch((s) => ({
-      ...s,
-      gold: s.gold + reward.gold,
-      xp: s.xp + reward.xp,
-      tasks: s.tasks.map((t) =>
-        t.id === task.id ? { ...t, status: "partial", completion: pct } : t
-      ),
-    }));
-    setExpandedTask(null);
-  }
-
-  function resetTask(taskId: string) {
-    patch((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) =>
-        t.id === taskId ? { ...t, status: "pending", completion: 0 } : t
-      ),
-    }));
-  }
-
-  return (
-    <AppShell currentRoute="/plan">
-      <div className="page-header">
-        <h1 className="page-title">Your plan</h1>
-        <p className="page-subtitle">
-          {doneTasks} of {totalTasks} tasks complete — {planPct}% overall
-        </p>
-      </div>
-
-      <div className="progress-track" style={{ marginBottom: 24 }}>
-        <div className="progress-fill" style={{ width: `${planPct}%`, background: "var(--color-primary)" }} />
-      </div>
-
-      <div className="row gap-8" style={{ marginBottom: 24, flexWrap: "wrap" }}>
-        {(["all", "today", "upcoming"] as Filter[]).map((f) => (
+  /* ── Step 1: Goal input ── */
+  if (step === "goal") {
+    return (
+      <FVShell hideNav>
+        <div style={{ padding: "20px 20px 40px" }}>
           <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            style={{
-              padding: "6px 16px",
-              borderRadius: 99,
-              border: `1.5px solid ${filter === f ? "var(--color-primary)" : "var(--color-border)"}`,
-              background: filter === f ? "var(--color-primary)" : "var(--color-surface)",
-              color: filter === f ? "white" : "var(--color-text)",
-              fontWeight: 600,
-              fontSize: "0.8rem",
-              cursor: "pointer",
-              textTransform: "capitalize",
-            }}
+            onClick={() => router.back()}
+            className="fv-btn fv-btn-ghost fv-btn-sm"
+            style={{ marginBottom: 16, gap: 4 }}
           >
-            {f}
+            <ChevronLeft size={16} /> Back
           </button>
-        ))}
-      </div>
 
-      {grouped.length === 0 ? (
-        <div className="empty-state">
-          <span style={{ fontSize: "2rem" }}>🎉</span>
-          <p>No tasks here. All done!</p>
-        </div>
-      ) : (
-        <div className="stack gap-28">
-          {grouped.map(([day, tasks]) => (
-            <div key={day}>
-              <div className="row gap-8" style={{ marginBottom: 10, alignItems: "center" }}>
-                <p
-                  style={{
-                    margin: 0,
-                    fontWeight: 800,
-                    fontSize: "0.85rem",
-                    color: day === today ? "var(--color-primary)" : "var(--color-text)",
-                    textTransform: "uppercase",
-                    letterSpacing: ".06em",
-                  }}
-                >
-                  {formatDay(day)}
-                </p>
-                <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
-                <span style={{ fontSize: "0.72rem", color: "var(--color-muted)" }}>
-                  {tasks.filter((t) => t.status === "completed").length}/{tasks.length}
-                </span>
+          <div className="animate-fade-up" style={{ textAlign: "center", marginBottom: 24 }}>
+            <Mascot size={72} mood="thinking" float />
+            <h1 style={{ margin: "12px 0 4px", fontSize: "1.7rem", fontWeight: 900, color: "#1D2B53" }}>
+              What&apos;s your big goal? 🌱
+            </h1>
+            <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.88rem" }}>
+              We&apos;ll break it down into manageable steps
+            </p>
+          </div>
+
+          <div className="fv-card fv-card-lg animate-fade-up delay-1">
+            <div className="stack gap-16">
+              <div className="stack gap-8">
+                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>
+                  Example: Prepare for medical school entrance exam
+                </label>
+                <textarea
+                  className="fv-textarea"
+                  rows={3}
+                  placeholder="Your goal here..."
+                  value={goalText}
+                  onChange={(e) => setGoalText(e.target.value)}
+                  style={{ minHeight: 90 }}
+                />
               </div>
 
               <div className="stack gap-8">
-                {tasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    expanded={expandedTask === task.id}
-                    sliderValue={sliders[task.id] ?? 50}
-                    onToggle={() =>
-                      setExpandedTask((prev) => (prev === task.id ? null : task.id))
-                    }
-                    onSlider={(v) => setSliders((prev) => ({ ...prev, [task.id]: v }))}
-                    onComplete={() => markComplete(task)}
-                    onPartial={() => markPartial(task)}
-                    onReset={() => resetTask(task.id)}
-                  />
-                ))}
-
-                {state.tasks.filter((t) => t.isRecovery && t.day === day).map((rec) => (
-                  <div
-                    key={rec.id}
-                    className="card"
-                    style={{
-                      borderStyle: "dashed",
-                      borderColor: "var(--color-primary)",
-                      background: "var(--color-primary-soft)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                    }}
-                  >
-                    <span style={{ fontSize: "1.3rem" }}>🌿</span>
-                    <div>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: "0.875rem" }}>Recovery gap</p>
-                      <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--color-muted)" }}>
-                        Light 15-min review — no pressure today.
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>
+                  <Calendar size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
+                  Deadline
+                </label>
+                <input
+                  type="date"
+                  className="fv-input"
+                  value={deadline}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setDeadline(e.target.value)}
+                />
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </AppShell>
-  );
-}
 
-function TaskCard({
-  task,
-  expanded,
-  sliderValue,
-  onToggle,
-  onSlider,
-  onComplete,
-  onPartial,
-  onReset,
-}: {
-  task: Task;
-  expanded: boolean;
-  sliderValue: number;
-  onToggle: () => void;
-  onSlider: (v: number) => void;
-  onComplete: () => void;
-  onPartial: () => void;
-  onReset: () => void;
-}) {
-  const done = task.status === "completed";
-  const partial = task.status === "partial";
+              <div className="stack gap-8">
+                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>Category</label>
+                <div className="row gap-8 cluster">
+                  {(Object.entries(CATEGORY_ICONS) as [GoalCategory, string][]).map(([cat, icon]) => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategory(cat)}
+                      className="fv-btn fv-btn-sm"
+                      style={{
+                        background: category === cat ? "#5EA9FF" : "white",
+                        color: category === cat ? "white" : "#6B7A99",
+                        border: `2px solid ${category === cat ? "#5EA9FF" : "#D6E9FF"}`,
+                        gap: 4,
+                        padding: "0 10px",
+                      }}
+                    >
+                      {icon} {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-  return (
-    <div
-      className="task-item"
-      style={{
-        opacity: done ? 0.55 : 1,
-        borderColor: done
-          ? "var(--color-border)"
-          : partial
-          ? "var(--color-accent)"
-          : "var(--color-border)",
-      }}
-    >
-      <div
-        style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}
-        onClick={onToggle}
-      >
-        <div
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: "50%",
-            border: `2px solid ${done ? "var(--color-primary)" : partial ? "var(--color-accent)" : "var(--color-border)"}`,
-            background: done ? "var(--color-primary)" : "transparent",
-            display: "grid",
-            placeItems: "center",
-            flexShrink: 0,
-            marginTop: 2,
-          }}
-        >
-          {done && <span style={{ color: "white", fontSize: "0.65rem" }}>✓</span>}
-          {partial && <span style={{ color: "var(--color-accent)", fontSize: "0.65rem" }}>◑</span>}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p
-            style={{
-              margin: 0,
-              fontWeight: 700,
-              fontSize: "0.9rem",
-              textDecoration: done ? "line-through" : "none",
-              color: done ? "var(--color-muted)" : "var(--color-text)",
-            }}
-          >
-            {task.title}
-          </p>
-          <div className="row gap-6 cluster" style={{ marginTop: 4 }}>
-            <span className="badge badge-gray">{task.minutes} min</span>
-            <span className="badge badge-gray">{diffLabel(task.difficulty)}</span>
-            <span className="badge badge-amber">+{task.gold} Gold</span>
-            <span className="badge badge-primary">+{task.xp} XP</span>
-          </div>
-        </div>
-        <span style={{ color: "var(--color-muted)", fontSize: "0.8rem", flexShrink: 0 }}>
-          {expanded ? "▲" : "▼"}
-        </span>
-      </div>
+              <div className="stack gap-8">
+                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>Daily energy level</label>
+                <div className="row gap-8">
+                  {(["low", "balanced", "high"] as EnergyLevel[]).map((lvl) => (
+                    <button
+                      key={lvl}
+                      onClick={() => setEnergy(lvl)}
+                      className="fv-btn fv-btn-sm"
+                      style={{
+                        flex: 1,
+                        background: energy === lvl ? "#5EA9FF" : "white",
+                        color: energy === lvl ? "white" : "#6B7A99",
+                        border: `2px solid ${energy === lvl ? "#5EA9FF" : "#D6E9FF"}`,
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {lvl === "low" ? "🌙 Easy" : lvl === "balanced" ? "⚡ Balanced" : "🔥 Intense"}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-      {expanded && !done && (
-        <div
-          style={{
-            marginTop: 12,
-            paddingTop: 12,
-            borderTop: "1px solid var(--color-border)",
-          }}
-        >
-          <div className="stack gap-12">
-            <button className="btn btn-primary btn-full" onClick={onComplete}>
-              ✓ Mark complete — +{task.gold} Gold, +{task.xp} XP
-            </button>
-
-            <div>
-              <p style={{ margin: "0 0 6px", fontSize: "0.78rem", color: "var(--color-muted)", fontWeight: 600 }}>
-                Partial: {sliderValue}% done — +{calcReward(task.difficulty, task.minutes, sliderValue).gold} Gold
-              </p>
-              <input
-                type="range"
-                min={10}
-                max={90}
-                step={10}
-                value={sliderValue}
-                onChange={(e) => onSlider(Number(e.target.value))}
-                style={{ width: "100%", accentColor: "var(--color-accent)" }}
-              />
               <button
-                className="btn btn-secondary btn-full"
-                style={{ marginTop: 6 }}
-                onClick={onPartial}
+                className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg"
+                disabled={!goalText.trim()}
+                onClick={() => setStep("planning")}
               >
-                Save partial progress
+                Continue →
               </button>
             </div>
           </div>
         </div>
-      )}
+      </FVShell>
+    );
+  }
 
-      {expanded && (done || partial) && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
-          <button className="btn btn-ghost btn-full" onClick={onReset} style={{ fontSize: "0.8rem" }}>
-            ↩ Reset task
+  /* ── Step 2: AI Planning (generate) ── */
+  if (step === "planning") {
+    const mockGoal: Goal = {
+      id: "goal-new",
+      title: goalText,
+      deadline,
+      dailyHours: energy === "high" ? 4 : energy === "low" ? 2 : 3,
+      energy,
+      difficulty: 3 as DifficultyLevel,
+      category,
+      createdAt: new Date().toISOString(),
+    };
+    const preview = generatePlan(mockGoal);
+    const pGrouped = groupByCategory(preview);
+    const pHours = Math.round(preview.reduce((s, t) => s + t.minutes, 0) / 60);
+
+    return (
+      <FVShell hideNav>
+        <div style={{ padding: "20px 20px 40px" }}>
+          <button
+            onClick={() => setStep("goal")}
+            className="fv-btn fv-btn-ghost fv-btn-sm"
+            style={{ marginBottom: 16, gap: 4 }}
+          >
+            <ChevronLeft size={16} /> Back
+          </button>
+
+          <div className="animate-fade-up" style={{ textAlign: "center", marginBottom: 20 }}>
+            <div style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #5EA9FF, #7EDC8A)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 12px",
+            }}>
+              <Sparkles size={24} color="white" />
+            </div>
+            <h1 style={{ margin: "0 0 4px", fontSize: "1.5rem", fontWeight: 900, color: "#1D2B53" }}>
+              AI Strategic Plan
+            </h1>
+            <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.85rem" }}>
+              I&apos;ve broken your goal into manageable steps!
+            </p>
+          </div>
+
+          {/* Stats row */}
+          <div className="fv-card animate-fade-up delay-1" style={{ marginBottom: 16 }}>
+            <div className="row gap-16" style={{ justifyContent: "space-around" }}>
+              <div style={{ textAlign: "center" }}>
+                <p style={{ margin: 0, fontSize: "1.8rem", fontWeight: 900, color: "#1D2B53" }}>
+                  {preview.filter((t) => !t.isRecovery).length}
+                </p>
+                <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99", fontWeight: 600 }}>Total Tasks</p>
+              </div>
+              <div style={{ width: 1, background: "#D6E9FF" }} />
+              <div style={{ textAlign: "center" }}>
+                <p style={{ margin: 0, fontSize: "1.8rem", fontWeight: 900, color: "#5EA9FF" }}>
+                  {pHours}h
+                </p>
+                <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99", fontWeight: 600 }}>Est. Focus Hours</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Plan Preview */}
+          <div className="fv-card animate-fade-up delay-2" style={{ marginBottom: 16 }}>
+            <p style={{ margin: "0 0 12px", fontWeight: 800, fontSize: "0.78rem", color: "#1D2B53" }}>
+              Plan Preview
+            </p>
+            <div className="stack gap-8">
+              {pGrouped.slice(0, 5).map(({ cat, count }) => (
+                <div key={cat} className="row between gap-8">
+                  <div className="row gap-8">
+                    <span style={{ fontSize: "1.1rem" }}>{CATEGORY_ICONS[cat as GoalCategory] ?? "✨"}</span>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#1D2B53", textTransform: "capitalize" }}>{cat}</span>
+                  </div>
+                  <span style={{ fontSize: "0.8rem", color: "#6B7A99", fontWeight: 600 }}>{count} tasks</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg animate-fade-up delay-3"
+            disabled={generating}
+            onClick={() => {
+              setGenerating(true);
+              setTimeout(() => {
+                const newGoal: Goal = {
+                  id: "goal-" + Date.now(),
+                  title: goalText,
+                  deadline,
+                  dailyHours: energy === "high" ? 4 : energy === "low" ? 2 : 3,
+                  energy,
+                  difficulty: 3 as DifficultyLevel,
+                  category,
+                  createdAt: new Date().toISOString(),
+                };
+                const tasks = generatePlan(newGoal);
+                patch((s) => ({ ...s, goal: newGoal, tasks, hasOnboarded: true }));
+                setPreviewTasks(tasks);
+                setGenerating(false);
+                setStep("plan");
+              }, 1200);
+            }}
+          >
+            {generating ? (
+              <span className="row gap-8 center" style={{ width: "100%" }}>
+                <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
+                Generating your plan…
+              </span>
+            ) : (
+              <>
+                <Sparkles size={18} />
+                Generate My Plan
+              </>
+            )}
           </button>
         </div>
-      )}
-    </div>
+      </FVShell>
+    );
+  }
+
+  /* ── Step 3: Full Plan View ── */
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayTasks = state.tasks.filter((t) => t.day === todayKey && !t.isRecovery);
+  const todayDone  = todayTasks.filter((t) => t.status === "completed").length;
+
+  return (
+    <FVShell>
+      <div style={{ padding: "20px 20px 20px" }}>
+        {/* Header */}
+        <div className="row between" style={{ marginBottom: 20 }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900, color: "#1D2B53" }}>Your Plan</h1>
+            {state.goal && (
+              <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "#6B7A99" }}>
+                {state.goal.title}
+              </p>
+            )}
+          </div>
+          <button
+            className="fv-btn fv-btn-secondary fv-btn-sm"
+            onClick={() => setStep("goal")}
+            style={{ gap: 4 }}
+          >
+            <Sparkles size={14} /> New goal
+          </button>
+        </div>
+
+        {/* Progress card */}
+        {state.goal && (
+          <div className="fv-card fv-card-blue animate-fade-up" style={{ marginBottom: 16 }}>
+            <div className="row between" style={{ marginBottom: 8 }}>
+              <p style={{ margin: 0, fontSize: "0.72rem", fontWeight: 700, opacity: 0.85 }}>Goal Progress</p>
+              <span style={{ fontSize: "1.2rem", fontWeight: 900 }}>{progress}%</span>
+            </div>
+            <div style={{
+              height: 10,
+              background: "rgba(255,255,255,0.25)",
+              borderRadius: 999,
+              overflow: "hidden",
+              marginBottom: 8,
+            }}>
+              <div style={{
+                height: "100%",
+                width: `${progress}%`,
+                background: "white",
+                borderRadius: 999,
+                transition: "width 600ms ease",
+              }} />
+            </div>
+            <div className="row between">
+              <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.85 }}>
+                {doneTasks} / {totalTasks} tasks · {totalHours}h focus
+              </p>
+              <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.85 }}>
+                📅 {new Date(state.goal.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Today's plan */}
+        <div className="fv-card animate-fade-up delay-1" style={{ marginBottom: 16 }}>
+          <div className="row between" style={{ marginBottom: 12 }}>
+            <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
+              Today&apos;s Plan
+            </p>
+            <span className="fv-badge fv-badge-blue">{todayDone}/{todayTasks.length} tasks</span>
+          </div>
+          <div className="stack gap-8">
+            {todayTasks.length === 0 && (
+              <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.82rem", textAlign: "center", padding: "12px 0" }}>
+                No tasks scheduled for today 🎉
+              </p>
+            )}
+            {todayTasks.slice(0, 6).map((task) => (
+              <div key={task.id} className={`fv-task ${task.status === "completed" ? "done" : ""}`}>
+                <div className={`fv-checkbox ${task.status === "completed" ? "checked" : ""}`}>
+                  {task.status === "completed" && <CheckCircle2 size={14} color="white" />}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{
+                    margin: 0,
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: task.status === "completed" ? "#6B7A99" : "#1D2B53",
+                    textDecoration: task.status === "completed" ? "line-through" : "none",
+                  }}>
+                    {task.title}
+                  </p>
+                  <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "#6B7A99" }}>
+                    <Clock size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
+                    {task.minutes} min · +{task.gold}🪙 +{task.xp}💎
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Category breakdown */}
+        <div className="fv-card animate-fade-up delay-2">
+          <p style={{ margin: "0 0 12px", fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
+            All Categories
+          </p>
+          <div className="stack gap-8">
+            {grouped.map(({ cat, count, minutes }) => (
+              <div key={cat} className="row between gap-8">
+                <div className="row gap-10">
+                  <div className="fv-cat-icon" style={{ background: "#EBF5FF" }}>
+                    <span>{CATEGORY_ICONS[cat as GoalCategory] ?? "✨"}</span>
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: "0.85rem", color: "#1D2B53", textTransform: "capitalize" }}>{cat}</p>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99" }}>{count} tasks</p>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p style={{ margin: 0, fontSize: "0.8rem", fontWeight: 700, color: "#5EA9FF" }}>
+                    {Math.round(minutes / 60 * 10) / 10}h
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </FVShell>
   );
 }

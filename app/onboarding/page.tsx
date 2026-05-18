@@ -1,260 +1,147 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { generatePlan } from "@/lib/ai-planner";
-import { AppShell } from "@/components/layout/AppShell";
-import type { Goal, EnergyLevel, DifficultyLevel, GoalCategory } from "@/lib/types";
-
-type FormState = {
-  title: string;
-  deadline: string;
-  dailyHours: number;
-  energy: EnergyLevel;
-  category: GoalCategory;
-  difficulty: DifficultyLevel;
-};
-type FormSetter = <K extends keyof FormState>(k: K, v: FormState[K]) => void;
-
-const CATEGORIES: { value: GoalCategory; label: string; icon: string }[] = [
-  { value: "study",    label: "Study / Exam",    icon: "📚" },
-  { value: "career",   label: "Career / Work",   icon: "💼" },
-  { value: "creative", label: "Creative Project", icon: "🎨" },
-  { value: "health",   label: "Health & Fitness", icon: "💪" },
-  { value: "personal", label: "Personal Growth",  icon: "🌱" },
-  { value: "other",    label: "Other",             icon: "✨" },
-];
-
-const defaultDeadline = (() => {
-  const d = new Date();
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().slice(0, 10);
-})();
+import { Mascot } from "@/components/focusville/Mascot";
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const { patch } = useStore();
-  const [step, setStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<FormState>({
-    title:      "",
-    deadline:   defaultDeadline,
-    dailyHours: 2,
-    energy:     "balanced",
-    category:   "study",
-    difficulty: 3,
-  });
 
-  const set: FormSetter = (key, val) => {
-    setForm((f) => ({ ...f, [key]: val }));
+  function handleStart() {
+    patch((s) => ({ ...s, hasOnboarded: true }));
   }
-
-  async function generate() {
-    if (!form.title.trim()) return;
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    const goal: Goal = {
-      id:         `goal-${Date.now()}`,
-      title:      form.title.trim(),
-      deadline:   form.deadline,
-      dailyHours: form.dailyHours,
-      energy:     form.energy,
-      difficulty: form.difficulty,
-      category:   form.category,
-      createdAt:  new Date().toISOString(),
-    };
-    patch((s) => ({ ...s, goal, tasks: generatePlan(goal), hasOnboarded: true }));
-    router.push("/dashboard");
-  }
-
-  const steps = [
-    <StepGoal     key="goal"    form={form} set={set} onNext={() => setStep(1)} />,
-    <StepDetails  key="details" form={form} set={set} onBack={() => setStep(0)} onNext={() => setStep(2)} />,
-    <StepConfirm  key="confirm" form={form} loading={loading} onBack={() => setStep(1)} onGenerate={generate} />,
-  ];
 
   return (
-    <AppShell currentRoute="/onboarding">
-      <div className="page-header">
-        <h1 className="page-title">Set up your goal</h1>
-        <p className="page-subtitle">We&apos;ll create a realistic daily plan in seconds.</p>
-      </div>
-
-      <div className="row gap-8" style={{ marginBottom: 24 }}>
-        {["Your goal", "Details", "Generate"].map((s, i) => (
-          <div key={s} className="row gap-6">
-            <div
-              style={{
-                width: 24, height: 24, borderRadius: "50%",
-                background: i <= step ? "var(--color-primary)" : "var(--color-border)",
-                color: i <= step ? "white" : "var(--color-muted)",
-                display: "grid", placeItems: "center",
-                fontSize: "0.72rem", fontWeight: 800, flexShrink: 0,
-              }}
-            >{i + 1}</div>
-            <span style={{ fontSize: "0.82rem", fontWeight: i === step ? 700 : 500, color: i === step ? "var(--color-text)" : "var(--color-muted)" }}>{s}</span>
-            {i < 2 && <span style={{ color: "var(--color-border)", marginLeft: 6 }}>›</span>}
-          </div>
+    <div style={{
+      minHeight: "100dvh",
+      background: "linear-gradient(180deg, #B8E4FF 0%, #D4EEFF 35%, #F5FAFF 70%)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      fontFamily: "var(--font-poppins, Poppins, system-ui, sans-serif)",
+      position: "relative",
+      overflow: "hidden",
+      maxWidth: 430,
+      margin: "0 auto",
+    }}>
+      {/* City skyline backdrop */}
+      <div style={{
+        position: "absolute",
+        bottom: 200,
+        left: 0,
+        right: 0,
+        height: 260,
+        overflow: "hidden",
+      }}>
+        {[
+          { l: "0%",   w: 60, h: 160, c: "#7BBBF5" },
+          { l: "8%",   w: 45, h: 100, c: "#8EC5FF" },
+          { l: "16%",  w: 55, h: 130, c: "#5EA9FF" },
+          { l: "24%",  w: 40, h: 80,  c: "#A8D4FF" },
+          { l: "32%",  w: 70, h: 200, c: "#6EAEF0" },
+          { l: "44%",  w: 50, h: 140, c: "#9AC8F8" },
+          { l: "54%",  w: 45, h: 110, c: "#7BBBF5" },
+          { l: "63%",  w: 65, h: 180, c: "#5EA9FF" },
+          { l: "74%",  w: 40, h: 90,  c: "#8EC5FF" },
+          { l: "82%",  w: 55, h: 150, c: "#6EAEF0" },
+          { l: "90%",  w: 50, h: 120, c: "#9AC8F8" },
+        ].map((b, i) => (
+          <div key={i} style={{
+            position: "absolute",
+            bottom: 0,
+            left: b.l,
+            width: b.w,
+            height: b.h,
+            background: b.c,
+            borderRadius: "6px 6px 0 0",
+            opacity: 0.7,
+          }} />
+        ))}
+        {["5%", "22%", "50%", "78%", "93%"].map((x, i) => (
+          <div key={i} style={{ position: "absolute", bottom: 0, left: x, fontSize: "2rem" }}>🌳</div>
         ))}
       </div>
 
-      <div style={{ maxWidth: 540 }}>{steps[step]}</div>
-    </AppShell>
-  );
-}
+      {/* Clouds */}
+      {[
+        { top: "8%",  left: "10%", sz: 1.0, delay: 0 },
+        { top: "12%", left: "60%", sz: 0.7, delay: 0.7 },
+        { top: "20%", left: "30%", sz: 0.85, delay: 1.4 },
+      ].map((c, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          top: c.top,
+          left: c.left,
+          fontSize: `${c.sz * 2.5}rem`,
+          opacity: 0.8,
+          animation: `mascot-float ${3 + i}s ease-in-out infinite`,
+          animationDelay: `${c.delay}s`,
+        }}>
+          ☁️
+        </div>
+      ))}
 
-function StepGoal({
-  form, set, onNext,
-}: {
-  form: Pick<FormState, "title" | "category">;
-  set: FormSetter;
-  onNext: () => void;
-}) {
-  return (
-    <div className="stack gap-20">
-      <div className="form-group">
-        <label className="form-label" htmlFor="goal-title">What is your main goal?</label>
-        <input
-          id="goal-title"
-          type="text"
-          className="form-input"
-          placeholder="e.g. Pass the mathematics final exam"
-          value={form.title}
-          onChange={(e) => set("title", e.target.value)}
-          style={{ fontSize: "0.97rem" }}
-          autoFocus
-        />
-        <p className="form-hint">One clear goal works better than a list.</p>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Goal category</label>
-        <div className="grid-3" style={{ gap: 8 }}>
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => set("category", c.value)}
-              style={{
-                padding: "10px 8px", textAlign: "center", cursor: "pointer",
-                border: `1.5px solid ${form.category === c.value ? "var(--color-primary)" : "var(--color-border)"}`,
-                borderRadius: "var(--r-md)",
-                background: form.category === c.value ? "var(--color-primary-soft)" : "var(--color-surface)",
-                color: form.category === c.value ? "var(--color-primary)" : "var(--color-text)",
-                fontWeight: 600, fontSize: "0.78rem", transition: "all 120ms",
-              }}
-            >
-              <div style={{ fontSize: "1.3rem", marginBottom: 4 }}>{c.icon}</div>
-              {c.label}
-            </button>
-          ))}
+      {/* Card panel */}
+      <div style={{
+        background: "white",
+        borderRadius: "32px 32px 0 0",
+        padding: "32px 28px 48px",
+        width: "100%",
+        textAlign: "center",
+        boxShadow: "0 -8px 40px rgba(94, 169, 255, 0.15)",
+        position: "relative",
+        zIndex: 10,
+      }}>
+        {/* Mascot peeking above card */}
+        <div style={{
+          position: "absolute",
+          top: -60,
+          left: "50%",
+          transform: "translateX(-50%)",
+          animation: "mascot-float 3s ease-in-out infinite",
+        }}>
+          <Mascot size={80} mood="happy" />
         </div>
-      </div>
-      <button className="btn btn-primary btn-lg" disabled={!form.title.trim()} onClick={onNext} style={{ alignSelf: "flex-start" }}>
-        Next →
-      </button>
-    </div>
-  );
-}
 
-function StepDetails({
-  form, set, onBack, onNext,
-}: {
-  form: Pick<FormState, "deadline" | "dailyHours" | "energy" | "difficulty">;
-  set: FormSetter;
-  onBack: () => void;
-  onNext: () => void;
-}) {
-  return (
-    <div className="stack gap-20">
-      <div className="grid-2">
-        <div className="form-group">
-          <label className="form-label" htmlFor="deadline">Deadline</label>
-          <input
-            id="deadline"
-            type="date"
-            className="form-input"
-            value={form.deadline}
-            min={new Date().toISOString().slice(0, 10)}
-            onChange={(e) => set("deadline", e.target.value)}
-          />
-        </div>
-        <div className="form-group">
-          <label className="form-label" htmlFor="hours">Hours per day</label>
-          <select
-            id="hours"
-            className="form-select"
-            value={form.dailyHours}
-            onChange={(e) => set("dailyHours", Number(e.target.value) as DifficultyLevel)}
-          >
-            {[1, 2, 3, 4, 5, 6].map((h) => (
-              <option key={h} value={h}>{h} hour{h > 1 ? "s" : ""}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Energy level</label>
-        <div className="mood-chips">
-          {(["low", "balanced", "high"] as EnergyLevel[]).map((e) => (
-            <button key={e} type="button" className={`mood-chip ${form.energy === e ? "active" : ""}`} onClick={() => set("energy", e)}>
-              {e === "low" ? "🔋 Low" : e === "balanced" ? "⚡ Balanced" : "🚀 High"}
-            </button>
-          ))}
-        </div>
-        <p className="form-hint">Low energy = shorter tasks, fewer per day.</p>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Preferred difficulty</label>
-        <div className="mood-chips">
-          {([1, 2, 3, 4, 5] as DifficultyLevel[]).map((d) => (
-            <button key={d} type="button" className={`mood-chip ${form.difficulty === d ? "active" : ""}`} onClick={() => set("difficulty", d)}>
-              {["Gentle", "Easy", "Standard", "Hard", "Max"][d - 1]}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="row gap-8">
-        <button className="btn btn-secondary" onClick={onBack}>← Back</button>
-        <button className="btn btn-primary btn-lg" onClick={onNext}>Next →</button>
-      </div>
-    </div>
-  );
-}
-
-function StepConfirm({
-  form, loading, onBack, onGenerate,
-}: {
-  form: { title: string; deadline: string; dailyHours: number; energy: string; difficulty: number };
-  loading: boolean; onBack: () => void; onGenerate: () => void;
-}) {
-  const [todayMs] = useState(() => Date.now());
-  const days = Math.max(1, Math.ceil((new Date(form.deadline).getTime() - todayMs) / 86_400_000));
-  return (
-    <div className="stack gap-20">
-      <div className="card" style={{ background: "var(--color-primary-soft)", borderColor: "rgba(45,106,97,.25)" }}>
-        <div className="stack gap-8">
-          <p className="section-label" style={{ margin: 0 }}>Plan summary</p>
-          <p style={{ margin: 0, fontWeight: 800, fontSize: "1.05rem" }}>🎯 {form.title}</p>
-          <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--color-muted)" }}>
-            {days} days · {form.dailyHours}h/day · {form.energy} energy · difficulty {form.difficulty}/5
+        <div style={{ marginTop: 28 }}>
+          <p style={{ margin: "0 0 4px", fontSize: "0.7rem", fontWeight: 800, color: "#6B7A99", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+            Welcome to
+          </p>
+          <h1 style={{ margin: "0 0 6px", fontSize: "2.2rem", fontWeight: 900, color: "#1D2B53" }}>
+            <span style={{ color: "#5EA9FF" }}>Focus</span>Ville
+          </h1>
+          <p style={{ margin: "0 0 8px", fontSize: "0.88rem", fontWeight: 600, color: "#6B7A99" }}>
+            Your goals. Your city. Your future.
           </p>
         </div>
-      </div>
-      <div className="card card-sm">
-        <p className="section-label" style={{ margin: "0 0 8px" }}>What gets generated</p>
-        <ul style={{ margin: 0, padding: "0 0 0 18px", fontSize: "0.875rem", color: "var(--color-muted)", lineHeight: 1.7 }}>
-          <li>Daily tasks sized to your available hours</li>
-          <li>Recovery gaps every 3 days</li>
-          <li>Gold + XP rewards per task</li>
-          <li>Adjustable difficulty after creation</li>
-        </ul>
-      </div>
-      <div className="row gap-8">
-        <button className="btn btn-secondary" onClick={onBack}>← Back</button>
-        <button className="btn btn-primary btn-lg" disabled={loading} onClick={onGenerate}>
-          {loading ? "Generating…" : "✨ Generate my plan"}
-        </button>
+
+        <div className="stack gap-12" style={{ marginTop: 28 }}>
+          <Link
+            href="/plan"
+            className="fv-btn fv-btn-primary fv-btn-lg fv-btn-full"
+            onClick={handleStart}
+          >
+            Get Started
+          </Link>
+          <Link
+            href="/login"
+            className="fv-btn fv-btn-ghost fv-btn-full"
+          >
+            I already have an account
+          </Link>
+        </div>
+
+        <div className="row gap-6 center" style={{ marginTop: 20 }}>
+          {[true, false, false].map((active, i) => (
+            <div key={i} style={{
+              width: active ? 20 : 8,
+              height: 8,
+              borderRadius: 4,
+              background: active ? "#5EA9FF" : "#D6E9FF",
+            }} />
+          ))}
+        </div>
       </div>
     </div>
   );

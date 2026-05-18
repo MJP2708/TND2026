@@ -1,25 +1,29 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins } from "next/font/google";
 import { AppStateProvider } from "@/lib/store";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-poppins",
+  display: "swap",
+});
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#5B5FE8",
+  themeColor: "#5EA9FF",
 };
 
 export const metadata: Metadata = {
-  title: "Tycoon Focus",
-  description: "Turn your goals into daily wins. Focus, earn, and grow.",
+  title: "FocusVille – Focus. Build. Thrive.",
+  description: "Turn your goals into a beautiful city. Build your future, one focus session at a time.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Tycoon Focus",
+    title: "FocusVille",
   },
 };
 
@@ -27,8 +31,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>
+    <html lang="en" className={poppins.variable}>
+      <body style={{ fontFamily: "var(--font-poppins, Poppins, system-ui, sans-serif)" }}>
         <AppStateProvider>{children}</AppStateProvider>
       </body>
     </html>

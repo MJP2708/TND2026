@@ -2,19 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { login } from "@/lib/auth";
-import { getCopy } from "@/lib/i18n";
-import { useStore } from "@/lib/store";
-import { PreferencesBar } from "@/components/layout/PreferencesBar";
+import { Mascot } from "@/components/focusville/Mascot";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { state } = useStore();
-  const copy = getCopy(state.language);
-  const [email, setEmail] = useState("demo@tycoon.app");
+  const [email, setEmail]       = useState("demo@tycoon.app");
   const [password, setPassword] = useState("demo1234");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
 
   async function handleLogin(em = email, pw = password) {
     setLoading(true);
@@ -23,130 +20,122 @@ export default function LoginPage() {
     if (login(em, pw)) {
       router.push("/dashboard");
     } else {
-      setError("That email and password do not match yet.");
+      setError("That email and password don't match.");
       setLoading(false);
     }
   }
 
   return (
-    <div className="login-page">
-      <div className="login-hero">
-        <div className="login-hero-top">
-          <div className="brand-mark brand-mark-lg" aria-hidden="true">
-            <span />
-          </div>
-          <PreferencesBar compact />
+    <div style={{
+      minHeight: "100dvh",
+      background: "linear-gradient(135deg, #EBF5FF 0%, #F5FAFF 60%, #E8FFF0 100%)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "20px",
+      fontFamily: "var(--font-poppins, Poppins, system-ui, sans-serif)",
+    }}>
+      <div style={{
+        background: "white",
+        borderRadius: 28,
+        padding: "32px 28px",
+        width: "100%",
+        maxWidth: 400,
+        boxShadow: "0 16px 60px rgba(94, 169, 255, 0.18)",
+        border: "1px solid #D6E9FF",
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <Mascot size={72} mood="happy" float />
+          <h1 style={{ margin: "8px 0 2px", fontSize: "1.8rem", fontWeight: 900, color: "#1D2B53" }}>
+            <span style={{ color: "#5EA9FF" }}>Focus</span>Ville
+          </h1>
+          <p style={{ margin: 0, fontSize: "0.82rem", color: "#6B7A99" }}>Your goals. Your city. Your future.</p>
         </div>
-        <div className="login-hero-content">
-          <p className="eyebrow">Private focus workspace</p>
-          <h1>{copy.appName}</h1>
-          <p className="login-hero-copy">
-            Turn one goal into daily tasks, focus sessions, rewards, and a city that grows with your effort.
+
+        {/* Demo */}
+        <div style={{
+          background: "linear-gradient(135deg, #FFF8E7, #FFEFC0)",
+          border: "1px solid #FFE08A",
+          borderRadius: 16,
+          padding: "14px 16px",
+          marginBottom: 20,
+        }}>
+          <p style={{ margin: "0 0 4px", fontWeight: 800, fontSize: "0.78rem", color: "#C17D00", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            Demo workspace
           </p>
-          <div className="login-banner">
-            <div className="mini-city" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-              <span />
-            </div>
-            <p>Plan gently, work clearly, and keep your momentum visible.</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="login-form-panel">
-        <div className="login-mobile-header">
-          <div className="brand-mark" aria-hidden="true">
-            <span />
-          </div>
-          <div>
-            <p>{copy.appName}</p>
-            <span>{copy.appTagline}</span>
-          </div>
+          <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "#6B7A99", lineHeight: 1.5 }}>
+            Explore with sample tasks, rewards & progress already loaded.
+          </p>
+          <button
+            className="fv-btn fv-btn-primary fv-btn-full"
+            disabled={loading}
+            onClick={() => handleLogin("demo@tycoon.app", "demo1234")}
+            style={{ height: 46 }}
+          >
+            {loading ? "Opening…" : "Open Demo Workspace"}
+          </button>
+          <p style={{ margin: "8px 0 0", fontSize: "0.7rem", color: "#B0BFCC", textAlign: "center" }}>
+            demo@tycoon.app / demo1234
+          </p>
         </div>
 
-        <div className="login-form-inner">
-          <div className="stack gap-24">
-            <div className="mobile-only">
-              <PreferencesBar compact />
-            </div>
-
-            <div className="stack gap-4">
-              <h2>Welcome in</h2>
-              <p>Your plan, focus timer, rewards, and progress are ready.</p>
-            </div>
-
-            <div className="demo-panel">
-              <div className="stack gap-10">
-                <p className="section-label" style={{ margin: 0 }}>Demo workspace</p>
-                <p>
-                  Explore the full experience with sample tasks, rewards, and progress already loaded.
-                </p>
-                <button
-                  className="btn btn-accent btn-full btn-lg"
-                  disabled={loading}
-                  onClick={() => handleLogin("demo@tycoon.app", "demo1234")}
-                >
-                  {loading ? "Opening..." : "Open demo workspace"}
-                </button>
-                <span>demo@tycoon.app / demo1234</span>
-              </div>
-            </div>
-
-            <div className="row gap-12 divider-row">
-              <div className="divider" />
-              <span>or sign in with email</span>
-              <div className="divider" />
-            </div>
-
-            <form
-              className="stack"
-              style={{ gap: 14 }}
-              onSubmit={(event) => {
-                event.preventDefault();
-                handleLogin();
-              }}
-            >
-              <div className="form-group">
-                <label className="form-label" htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  className="form-input"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="email"
-                  placeholder="your@email.com"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  className="form-input"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="current-password"
-                  placeholder="password"
-                  required
-                />
-              </div>
-              {error && (
-                <div className="form-error-box">
-                  <p className="form-error">{error}</p>
-                </div>
-              )}
-              <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>
-                {loading ? "Signing in..." : "Sign in"}
-              </button>
-            </form>
-
-            <p className="login-note">Local demo only. Your data stays in this browser.</p>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+          <div style={{ flex: 1, height: 1, background: "#D6E9FF" }} />
+          <span style={{ fontSize: "0.75rem", color: "#6B7A99", fontWeight: 600 }}>or sign in</span>
+          <div style={{ flex: 1, height: 1, background: "#D6E9FF" }} />
         </div>
+
+        <form
+          className="stack gap-12"
+          onSubmit={(e) => { e.preventDefault(); handleLogin(); }}
+        >
+          <div className="stack gap-6">
+            <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>Email</label>
+            <input
+              type="email"
+              className="fv-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div className="stack gap-6">
+            <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>Password</label>
+            <input
+              type="password"
+              className="fv-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="password"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          {error && (
+            <div style={{
+              background: "#FFF5F5",
+              border: "1px solid #FFCCD5",
+              borderRadius: 12,
+              padding: "10px 14px",
+              fontSize: "0.82rem",
+              color: "#D94040",
+              fontWeight: 600,
+            }}>
+              {error}
+            </div>
+          )}
+          <button type="submit" className="fv-btn fv-btn-primary fv-btn-full" disabled={loading} style={{ height: 52 }}>
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+
+        <p style={{ margin: "16px 0 0", textAlign: "center", fontSize: "0.75rem", color: "#6B7A99" }}>
+          Don&apos;t have an account?{" "}
+          <Link href="/onboarding" style={{ color: "#5EA9FF", fontWeight: 700 }}>Get started free</Link>
+        </p>
       </div>
     </div>
   );

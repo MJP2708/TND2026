@@ -3,24 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { AppShell } from "@/components/layout/AppShell";
-import { PreferencesBar } from "@/components/layout/PreferencesBar";
+import { FVShell } from "@/components/focusville/FVShell";
+import { Mascot } from "@/components/focusville/Mascot";
 import { logout } from "@/lib/auth";
-import { getCopy } from "@/lib/i18n";
+import { User, Shield, Bell, LogOut, ChevronRight, RotateCcw } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
   const { state, patch, resetDemo, ready } = useStore();
-  const copy = getCopy(state.language);
-  const [name, setName] = useState("");
+  const [name, setName]               = useState("");
   const [nameEditing, setNameEditing] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
   if (!ready) {
     return (
-      <AppShell currentRoute="/settings">
-        <div className="empty-state" style={{ paddingTop: 80 }}><p>Loading…</p></div>
-      </AppShell>
+      <FVShell>
+        <div className="fv-loading">
+          <Mascot size={60} mood="idle" float />
+        </div>
+      </FVShell>
     );
   }
 
@@ -31,206 +32,199 @@ export default function SettingsPage() {
     setName("");
   }
 
-  function handleLogout() {
-    logout();
-    router.replace("/login");
-  }
+  function handleLogout() { logout(); router.replace("/login"); }
+  function handleReset()  { resetDemo(); setConfirmReset(false); }
 
-  function handleReset() {
-    resetDemo();
-    setConfirmReset(false);
-  }
-
-  const doneTasks = state.tasks.filter((t) => t.status === "completed").length;
-  const totalTasks = state.tasks.filter((t) => !t.isRecovery).length;
+  const MENU_SECTIONS = [
+    {
+      title: "Profile",
+      items: [
+        { icon: <User size={16} />, label: "Display Name", value: state.displayName, onPress: () => { setName(state.displayName); setNameEditing(true); } },
+        { icon: "⭐", label: "Level", value: `Level ${state.level} · ${state.xp} XP` },
+        { icon: "🔥", label: "Streak", value: `${state.streak} days` },
+      ],
+    },
+    {
+      title: "Your Stats",
+      items: [
+        { icon: "🪙", label: "Gold", value: state.gold.toLocaleString() },
+        { icon: "⏱", label: "Focus Time", value: `${(state.focusMinutes / 60).toFixed(1)}h` },
+        { icon: "✅", label: "Tasks Done", value: `${state.tasks.filter((t) => t.status === "completed").length}` },
+        { icon: "🏠", label: "House Level", value: `Level ${state.houseLevel}` },
+      ],
+    },
+  ];
 
   return (
-    <AppShell currentRoute="/settings">
-      <div className="page-header">
-        <h1 className="page-title">Settings</h1>
-        <p className="page-subtitle">Manage your workspace and account.</p>
-      </div>
+    <FVShell>
+      <div style={{ padding: "0 0 20px" }}>
 
-      <div className="stack gap-28" style={{ maxWidth: 540 }}>
-        <div>
-          <p className="section-label">{copy.appearance}</p>
-          <div className="card">
-            <div className="stack gap-12">
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
-                Change the interface tone, dark or light mode, and content language without changing the layout.
+        {/* Profile header */}
+        <div style={{
+          background: "linear-gradient(135deg, #5EA9FF, #3D8FE8)",
+          padding: "28px 20px 24px",
+          textAlign: "center",
+        }}>
+          <Mascot size={72} mood={state.streak > 7 ? "celebrate" : "happy"} float />
+          <h2 style={{ margin: "10px 0 2px", fontWeight: 900, color: "white", fontSize: "1.2rem" }}>
+            {state.displayName}
+          </h2>
+          <p style={{ margin: 0, color: "rgba(255,255,255,0.8)", fontSize: "0.82rem" }}>
+            Level {state.level} · 🔥 {state.streak} day streak
+          </p>
+          <div className="row gap-8 center" style={{ marginTop: 12 }}>
+            <div style={{
+              background: "rgba(255,255,255,0.2)",
+              borderRadius: 999,
+              padding: "4px 14px",
+              fontSize: "0.78rem",
+              fontWeight: 700,
+              color: "white",
+            }}>
+              🪙 {state.gold} Gold
+            </div>
+            <div style={{
+              background: "rgba(255,255,255,0.2)",
+              borderRadius: 999,
+              padding: "4px 14px",
+              fontSize: "0.78rem",
+              fontWeight: 700,
+              color: "white",
+            }}>
+              💎 {state.xp} XP
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: "16px 20px" }}>
+
+          {/* Name editor */}
+          {nameEditing && (
+            <div className="fv-card animate-fade-up" style={{ marginBottom: 12 }}>
+              <p style={{ margin: "0 0 10px", fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
+                Change Display Name
               </p>
-              <PreferencesBar />
-            </div>
-          </div>
-        </div>
-
-        {/* Profile */}
-        <div>
-          <p className="section-label">Profile</p>
-          <div className="card">
-            <div className="stack gap-14">
-              <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: "50%",
-                    background: "var(--color-primary)",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "white",
-                    fontWeight: 900,
-                    fontSize: "1.3rem",
-                    flexShrink: 0,
-                  }}
-                >
-                  {state.displayName[0]?.toUpperCase() ?? "U"}
-                </div>
-                <div>
-                  <p style={{ margin: 0, fontWeight: 800, fontSize: "1rem" }}>{state.displayName}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "var(--color-muted)" }}>
-                    Level {state.level} · {state.xp} XP · 🔥 {state.streak} day streak
-                  </p>
-                </div>
-              </div>
-
-              {!nameEditing ? (
-                <button
-                  className="btn btn-secondary"
-                  style={{ alignSelf: "flex-start" }}
-                  onClick={() => { setName(state.displayName); setNameEditing(true); }}
-                >
-                  Change display name
+              <div className="row gap-8">
+                <input
+                  type="text"
+                  className="fv-input"
+                  style={{ flex: 1 }}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name…"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && saveName()}
+                />
+                <button className="fv-btn fv-btn-primary fv-btn-sm" onClick={saveName} disabled={!name.trim()}>
+                  Save
                 </button>
-              ) : (
-                <div className="row gap-8">
-                  <input
-                    type="text"
-                    className="form-input"
-                    style={{ flex: 1 }}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="New name…"
-                    autoFocus
-                    onKeyDown={(e) => e.key === "Enter" && saveName()}
-                  />
-                  <button className="btn btn-primary" onClick={saveName} disabled={!name.trim()}>
-                    Save
-                  </button>
-                  <button className="btn btn-ghost" onClick={() => setNameEditing(false)}>
-                    Cancel
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Stats snapshot */}
-        <div>
-          <p className="section-label">Your stats</p>
-          <div className="stat-grid">
-            <div className="stat-card">
-              <div className="stat-label">💰 Gold</div>
-              <div className="stat-value" style={{ color: "var(--color-accent)" }}>{state.gold}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">⏱ Focus</div>
-              <div className="stat-value">{(state.focusMinutes / 60).toFixed(1)}h</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">✅ Done</div>
-              <div className="stat-value">{doneTasks}/{totalTasks}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">🏙 House</div>
-              <div className="stat-value">Lv {state.houseLevel}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Data */}
-        <div>
-          <p className="section-label">Data</p>
-          <div className="card">
-            <div className="stack gap-14">
-              <div>
-                <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: "0.875rem" }}>
-                  All data is local
-                </p>
-                <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
-                  Your plan, focus history, and city are stored in this browser only. No account required, no data sent to any server.
-                </p>
               </div>
+              <button className="fv-btn fv-btn-ghost fv-btn-sm" onClick={() => setNameEditing(false)} style={{ marginTop: 6 }}>
+                Cancel
+              </button>
+            </div>
+          )}
 
+          {/* Menu sections */}
+          {MENU_SECTIONS.map((section) => (
+            <div key={section.title} style={{ marginBottom: 16 }} className="animate-fade-up">
+              <p className="fv-label" style={{ margin: "0 0 8px", paddingLeft: 4 }}>{section.title}</p>
+              <div className="fv-card" style={{ padding: 0, overflow: "hidden" }}>
+                {section.items.map((item, i) => (
+                  <div
+                    key={item.label}
+                    onClick={item.onPress}
+                    style={{
+                      padding: "14px 16px",
+                      borderBottom: i < section.items.length - 1 ? "1px solid #F0F5FF" : "none",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      cursor: item.onPress ? "pointer" : "default",
+                    }}
+                  >
+                    <div style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      background: "#EBF5FF",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "1rem",
+                      flexShrink: 0,
+                    }}>
+                      {item.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: "0.85rem", color: "#1D2B53" }}>{item.label}</p>
+                    </div>
+                    <p style={{ margin: 0, fontSize: "0.82rem", color: "#6B7A99", fontWeight: 600 }}>{item.value}</p>
+                    {item.onPress && <ChevronRight size={14} color="#B0BFCC" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Data section */}
+          <div style={{ marginBottom: 16 }} className="animate-fade-up delay-1">
+            <p className="fv-label" style={{ margin: "0 0 8px", paddingLeft: 4 }}>Data</p>
+            <div className="fv-card">
+              <p style={{ margin: "0 0 12px", fontSize: "0.82rem", color: "#6B7A99", lineHeight: 1.6 }}>
+                All data is stored locally in your browser. No account required, nothing sent to any server.
+              </p>
               {!confirmReset ? (
                 <button
-                  className="btn btn-secondary"
-                  style={{ alignSelf: "flex-start", color: "var(--color-danger)" }}
+                  className="fv-btn fv-btn-secondary fv-btn-sm row gap-6"
                   onClick={() => setConfirmReset(true)}
+                  style={{ color: "#D94040", borderColor: "#FFCCD5" }}
                 >
+                  <RotateCcw size={14} />
                   Reset to demo data
                 </button>
               ) : (
-                <div className="card" style={{ background: "#FEF2F2", borderColor: "#FCA5A5" }}>
-                  <div className="stack gap-10">
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: "0.875rem", color: "#991B1B" }}>
-                      This will erase all your progress and restore the demo state.
-                    </p>
-                    <div className="row gap-8">
-                      <button
-                        className="btn btn-danger"
-                        onClick={handleReset}
-                      >
-                        Yes, reset everything
-                      </button>
-                      <button className="btn btn-ghost" onClick={() => setConfirmReset(false)}>
-                        Cancel
-                      </button>
-                    </div>
+                <div style={{
+                  background: "#FFF5F5",
+                  border: "1px solid #FFCCD5",
+                  borderRadius: 12,
+                  padding: "12px",
+                }}>
+                  <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: "0.82rem", color: "#D94040" }}>
+                    This will erase all your progress and restore demo data.
+                  </p>
+                  <div className="row gap-8">
+                    <button
+                      className="fv-btn fv-btn-sm"
+                      style={{ background: "#D94040", color: "white", border: "none" }}
+                      onClick={handleReset}
+                    >
+                      Yes, reset
+                    </button>
+                    <button className="fv-btn fv-btn-ghost fv-btn-sm" onClick={() => setConfirmReset(false)}>
+                      Cancel
+                    </button>
                   </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
 
-        {/* Account */}
-        <div>
-          <p className="section-label">Account</p>
-          <div className="card">
-            <div className="stack gap-10">
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.55 }}>
-                Signed in as demo@tycoon.app
-              </p>
-              <button
-                className="btn btn-secondary"
-                style={{ alignSelf: "flex-start" }}
-                onClick={handleLogout}
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
+          {/* Sign out */}
+          <button
+            className="fv-btn fv-btn-secondary fv-btn-full animate-fade-up delay-2"
+            onClick={handleLogout}
+            style={{ gap: 8, color: "#D94040", borderColor: "#FFCCD5", marginBottom: 12 }}
+          >
+            <LogOut size={16} />
+            Sign Out
+          </button>
 
-        {/* About */}
-        <div>
-          <p className="section-label">About</p>
-          <div className="card" style={{ borderStyle: "dashed" }}>
-            <div className="stack gap-6">
-              <div className="row gap-10">
-                <div className="brand-mark" style={{ width: 32, height: 32, borderRadius: 8, fontSize: "0.75rem" }}>TF</div>
-                <strong style={{ fontWeight: 900 }}>Tycoon Focus</strong>
-              </div>
-              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-muted)", lineHeight: 1.6 }}>
-                Turn one goal into today&apos;s plan. Focus, earn Gold, grow your city.
-                Browser-only demo — all your data stays private.
-              </p>
-            </div>
-          </div>
+          <p style={{ textAlign: "center", fontSize: "0.72rem", color: "#B0BFCC", fontWeight: 600 }}>
+            FocusVille · Browser-only · Your data stays private
+          </p>
         </div>
       </div>
-    </AppShell>
+    </FVShell>
   );
 }

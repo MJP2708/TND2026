@@ -2,264 +2,245 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { AppShell } from "@/components/layout/AppShell";
-import type { MoodTone } from "@/lib/types";
+import { FVShell } from "@/components/focusville/FVShell";
+import { Mascot } from "@/components/focusville/Mascot";
+import { Heart, AlertCircle, Sparkles } from "lucide-react";
 
-const QUESTIONS = [
-  {
-    q: "How rested do you feel today?",
-    options: ["Very tired", "A bit tired", "Okay", "Well rested"],
-  },
-  {
-    q: "How is your mental load right now?",
-    options: ["Overloaded", "Heavy", "Manageable", "Light"],
-  },
-  {
-    q: "What would help you most today?",
-    options: ["Take it slow", "Stay steady", "Push a bit", "Start small"],
-  },
+type MoodState = "checkin" | "burnout" | "done";
+
+const MOODS = [
+  { label: "Great",       emoji: "😄", color: "#7EDC8A", bg: "#F0FFF4" },
+  { label: "Good",        emoji: "🙂", color: "#5EA9FF", bg: "#EBF5FF" },
+  { label: "Okay",        emoji: "😐", color: "#FFD45E", bg: "#FFFDF0" },
+  { label: "Tired",       emoji: "😴", color: "#8EC5FF", bg: "#EBF5FF" },
+  { label: "Stressed",    emoji: "😰", color: "#FFAD5E", bg: "#FFF5EB" },
+  { label: "Overwhelmed", emoji: "😫", color: "#FF7B7B", bg: "#FFF5F5" },
+  { label: "Sad",         emoji: "😢", color: "#A78BFA", bg: "#F5F0FF" },
+  { label: "Anxious",     emoji: "😬", color: "#FFD45E", bg: "#FFFDF0" },
+  { label: "Meh",         emoji: "😑", color: "#6B7A99", bg: "#F5FAFF" },
 ];
 
-function toneFromAnswers(answers: string[]): MoodTone {
-  const score = answers.reduce((acc, a, i) => {
-    const idx = QUESTIONS[i].options.indexOf(a);
-    return acc + idx;
-  }, 0);
-  if (score <= 2) return "overloaded";
-  if (score <= 5) return "tired";
-  if (score <= 8) return "steady";
-  return "rested";
-}
+const BURNOUT_SIGNS = ["Stressed", "Overwhelmed", "Tired", "Anxious"];
 
-const TONE_LABEL: Record<MoodTone, { label: string; icon: string; color: string; tip: string }> = {
-  rested: {
-    label: "Rested",
-    icon: "🌟",
-    color: "var(--color-primary)",
-    tip: "You're in great shape — take on your hardest task first.",
-  },
-  steady: {
-    label: "Steady",
-    icon: "💚",
-    color: "var(--color-primary)",
-    tip: "Start with something achievable, then build momentum.",
-  },
-  tired: {
-    label: "Tired",
-    icon: "🌙",
-    color: "var(--color-accent)",
-    tip: "Do one short task. Rest is part of the process.",
-  },
-  overloaded: {
-    label: "Overloaded",
-    icon: "🌿",
-    color: "var(--color-muted)",
-    tip: "Skip the heavy tasks today. A short review counts.",
-  },
+const AI_SUGGESTIONS = {
+  burnout: [
+    "Reduce daily tasks by 30%",
+    "Add recovery time between sessions",
+    "Focus on what matters most",
+  ],
+  normal: [
+    "Keep up the momentum",
+    "Try a 25-min Pomodoro session",
+    "Review your progress today",
+  ],
 };
 
 export default function MoodPage() {
-  const { state, patch, ready } = useStore();
-  const [step, setStep] = useState<"check" | "result" | "history">("check");
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [currentQ, setCurrentQ] = useState(0);
+  const { state, patch } = useStore();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [screen, setScreen]     = useState<MoodState>("checkin");
+  const [rewarded, setRewarded] = useState(false);
 
-  if (!ready) {
-    return (
-      <AppShell currentRoute="/mood">
-        <div className="empty-state" style={{ paddingTop: 80 }}><p>Loading…</p></div>
-      </AppShell>
-    );
-  }
+  const isBurnout = selected ? BURNOUT_SIGNS.includes(selected) : false;
 
-  const todayDate = new Date().toISOString().slice(0, 10);
-  const checkedToday = state.moods.some((m) => m.date.slice(0, 10) === todayDate);
-
-  function pickAnswer(answer: string) {
-    const next = [...answers, answer];
-    if (currentQ < QUESTIONS.length - 1) {
-      setAnswers(next);
-      setCurrentQ((q) => q + 1);
-    } else {
-      const tone = toneFromAnswers(next);
+  function handleContinue() {
+    if (!selected) return;
+    const goldReward = 50;
+    if (!rewarded) {
       patch((s) => ({
         ...s,
-        gold: s.gold + 25,
+        gold: s.gold + goldReward,
         moods: [
           {
-            id: `mood-${Date.now()}`,
+            id: `m-${Date.now()}`,
             date: new Date().toISOString(),
-            tone,
-            answers: next,
-            goldAwarded: 25,
+            tone: isBurnout ? "overloaded" : "steady",
+            answers: [selected],
+            goldAwarded: goldReward,
           },
           ...s.moods,
         ],
       }));
-      setAnswers(next);
-      setStep("result");
+      setRewarded(true);
     }
+    setScreen(isBurnout ? "burnout" : "done");
   }
 
-  function restart() {
-    setAnswers([]);
-    setCurrentQ(0);
-    setStep("check");
+  /* ── Done screen ── */
+  if (screen === "done") {
+    return (
+      <FVShell>
+        <div style={{ padding: "40px 20px", textAlign: "center" }}>
+          <Mascot size={90} mood="happy" float />
+          <h2 style={{ margin: "16px 0 8px", fontWeight: 900, color: "#1D2B53", fontSize: "1.5rem" }}>
+            Thanks for checking in! 💚
+          </h2>
+          <p style={{ margin: "0 0 24px", color: "#6B7A99", fontSize: "0.88rem" }}>
+            You earned a check-in reward
+          </p>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#FFF8E7", border: "1px solid #FFE08A", borderRadius: 999, padding: "10px 20px", marginBottom: 24 }}>
+            <span style={{ fontSize: "1.2rem" }}>🪙</span>
+            <span style={{ fontWeight: 900, fontSize: "1.1rem", color: "#C17D00" }}>+50</span>
+            <span style={{ fontWeight: 600, color: "#6B7A99", fontSize: "0.85rem" }}>Check-in reward</span>
+          </div>
+          <div className="fv-card" style={{ marginBottom: 16, textAlign: "left" }}>
+            <div className="row gap-10">
+              <Sparkles size={18} color="#5EA9FF" />
+              <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>AI Suggestion</p>
+            </div>
+            <p style={{ margin: "8px 0 10px", fontSize: "0.82rem", color: "#6B7A99" }}>
+              Let&apos;s keep your plan for the next 3 days:
+            </p>
+            {AI_SUGGESTIONS.normal.map((s, i) => (
+              <div key={i} className="row gap-8" style={{ marginBottom: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#5EA9FF", flexShrink: 0, marginTop: 4 }} />
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "#1D2B53", fontWeight: 600 }}>{s}</p>
+              </div>
+            ))}
+          </div>
+          <button
+            className="fv-btn fv-btn-primary fv-btn-full"
+            onClick={() => { setScreen("checkin"); setSelected(null); setRewarded(false); }}
+          >
+            Check in again tomorrow
+          </button>
+        </div>
+      </FVShell>
+    );
   }
 
-  const latestMood = state.moods[0];
-  const latestTone = latestMood ? TONE_LABEL[latestMood.tone] : null;
+  /* ── Burnout support screen ── */
+  if (screen === "burnout") {
+    return (
+      <FVShell>
+        <div style={{ padding: "24px 20px" }}>
+          <div className="fv-burnout-card animate-fade-up" style={{ marginBottom: 16 }}>
+            <div className="row gap-10" style={{ marginBottom: 10 }}>
+              <div style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "#FF7B7B",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+                <Heart size={16} color="white" fill="white" />
+              </div>
+              <p style={{ margin: 0, fontWeight: 800, fontSize: "0.9rem", color: "#1D2B53" }}>
+                It looks like you&apos;ve been under a lot of pressure lately.
+              </p>
+            </div>
+            <p style={{ margin: 0, fontSize: "0.85rem", color: "#6B7A99", lineHeight: 1.6 }}>
+              Remember, rest is part of the process too.
+            </p>
+          </div>
 
-  return (
-    <AppShell currentRoute="/mood">
-      <div className="page-header">
-        <h1 className="page-title">How are you feeling? 💚</h1>
-        <p className="page-subtitle">3 quick questions. Earn 25 Gold. No guilt, ever.</p>
-      </div>
-
-      <div style={{ maxWidth: 480, margin: "0 auto" }}>
-        <div className="stack gap-24">
-          {/* Tab row */}
-          <div className="row gap-8">
-            {(["check", "history"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => { setStep(t); restart(); }}
-                style={{
-                  padding: "6px 18px",
-                  borderRadius: 99,
-                  border: `1.5px solid ${step === t || (step === "result" && t === "check") ? "var(--color-primary)" : "var(--color-border)"}`,
-                  background: step === t || (step === "result" && t === "check") ? "var(--color-primary)" : "var(--color-surface)",
-                  color: step === t || (step === "result" && t === "check") ? "white" : "var(--color-text)",
-                  fontWeight: 600,
-                  fontSize: "0.8rem",
-                  cursor: "pointer",
-                  textTransform: "capitalize",
-                }}
-              >
-                {t}
-              </button>
+          <div className="fv-card animate-fade-up delay-1" style={{ marginBottom: 16 }}>
+            <div className="row gap-8" style={{ marginBottom: 10 }}>
+              <Sparkles size={16} color="#5EA9FF" />
+              <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>AI Suggestion</p>
+            </div>
+            <p style={{ margin: "0 0 10px", fontSize: "0.82rem", color: "#6B7A99" }}>
+              Let&apos;s lighten your plan for the next 3 days.
+            </p>
+            {AI_SUGGESTIONS.burnout.map((s, i) => (
+              <div key={i} className="row gap-8" style={{ marginBottom: 8 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#FF7B7B", flexShrink: 0, marginTop: 5 }} />
+                <p style={{ margin: 0, fontSize: "0.82rem", color: "#1D2B53", fontWeight: 600 }}>{s}</p>
+              </div>
             ))}
           </div>
 
-          {/* Check-in */}
-          {step === "check" && (
-            <div className="card card-lg">
-              {checkedToday ? (
-                <div className="stack gap-12" style={{ alignItems: "center", textAlign: "center" }}>
-                  <span style={{ fontSize: "2rem" }}>✅</span>
-                  <p style={{ margin: 0, fontWeight: 800 }}>You already checked in today 🌱</p>
-                  {latestTone && (
-                    <p style={{ margin: 0, color: "var(--color-muted)", fontSize: "0.875rem" }}>
-                      Feeling {latestTone.icon} {latestTone.label} · +25 Gold earned
-                    </p>
-                  )}
-                  <button className="btn btn-secondary btn-full" onClick={() => setStep("history")}>
-                    See history
-                  </button>
-                </div>
-              ) : (
-                <div className="stack gap-20">
-                  <div>
-                    <p style={{ margin: "0 0 4px", fontSize: "0.7rem", fontWeight: 800, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: ".07em" }}>
-                      Question {currentQ + 1} of {QUESTIONS.length}
-                    </p>
-                    <div className="progress-track" style={{ marginBottom: 16 }}>
-                      <div
-                        className="progress-fill"
-                        style={{
-                          width: `${((currentQ) / QUESTIONS.length) * 100}%`,
-                          background: "var(--color-primary)",
-                        }}
-                      />
-                    </div>
-                    <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 800, lineHeight: 1.4 }}>
-                      {QUESTIONS[currentQ].q}
-                    </h2>
-                  </div>
-                  <div className="mood-chips" style={{ flexDirection: "column" }}>
-                    {QUESTIONS[currentQ].options.map((opt) => (
-                      <button
-                        key={opt}
-                        type="button"
-                        className="mood-chip"
-                        style={{ textAlign: "left", padding: "12px 16px" }}
-                        onClick={() => pickAnswer(opt)}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+          {/* Reward badge */}
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#FFF8E7", border: "1px solid #FFE08A", borderRadius: 999, padding: "8px 16px" }}>
+              <span>🪙</span>
+              <span style={{ fontWeight: 900, color: "#C17D00" }}>+50</span>
+              <span style={{ color: "#6B7A99", fontSize: "0.8rem", fontWeight: 600 }}>Check-in reward</span>
             </div>
-          )}
+          </div>
 
-          {/* Result */}
-          {step === "result" && latestMood && (
-            <div className="card card-lg" style={{ textAlign: "center" }}>
-              <div className="stack gap-16" style={{ alignItems: "center" }}>
-                <span style={{ fontSize: "3rem" }}>{TONE_LABEL[latestMood.tone].icon}</span>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900 }}>
-                    {TONE_LABEL[latestMood.tone].label}
-                  </h2>
-                  <p style={{ margin: "6px 0 0", color: "var(--color-muted)", fontSize: "0.875rem", lineHeight: 1.6 }}>
-                    {TONE_LABEL[latestMood.tone].tip}
-                  </p>
-                </div>
-                <div
-                  className="card"
-                  style={{ background: "var(--color-accent-soft)", borderColor: "var(--color-accent)", padding: "10px 20px" }}
-                >
-                  <p style={{ margin: 0, fontWeight: 800, color: "var(--color-accent)" }}>
-                    +25 Gold earned 🎉
-                  </p>
-                </div>
-                <button className="btn btn-secondary btn-full" onClick={() => setStep("history")}>
-                  See my mood history
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="stack gap-10 animate-fade-up delay-2">
+            <button className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg">
+              ✨ See New Plan
+            </button>
+            <button
+              className="fv-btn fv-btn-ghost fv-btn-full"
+              onClick={() => { setScreen("checkin"); setSelected(null); setRewarded(false); }}
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      </FVShell>
+    );
+  }
 
-          {/* History */}
-          {step === "history" && (
-            <div>
-              {state.moods.length === 0 ? (
-                <div className="empty-state" style={{ padding: "24px 0" }}>
-                  <p>No check-ins yet. Start your first one above.</p>
-                </div>
-              ) : (
-                <div className="stack gap-10">
-                  {state.moods.slice(0, 14).map((m) => {
-                    const tone = TONE_LABEL[m.tone];
-                    return (
-                      <div key={m.id} className="card" style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                        <span style={{ fontSize: "1.4rem" }}>{tone.icon}</span>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ margin: 0, fontWeight: 700, fontSize: "0.875rem" }}>{tone.label}</p>
-                          <p style={{ margin: "2px 0 0", fontSize: "0.75rem", color: "var(--color-muted)" }}>
-                            {new Date(m.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                          </p>
-                        </div>
-                        <span className="badge badge-amber">+{m.goldAwarded}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Disclaimer */}
-          <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--color-muted)", textAlign: "center", lineHeight: 1.6 }}>
-            This is a simple wellbeing nudge — not a clinical tool. If you&apos;re having
-            a tough time, please reach out to someone you trust. You matter 🤍
+  /* ── Mood check-in screen ── */
+  return (
+    <FVShell>
+      <div style={{ padding: "20px 20px" }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }} className="animate-fade-up">
+          <Mascot size={72} mood={selected ? (isBurnout ? "tired" : "happy") : "idle"} float />
+          <h1 style={{ margin: "12px 0 4px", fontSize: "1.4rem", fontWeight: 900, color: "#1D2B53" }}>
+            How are you feeling today? 💭
+          </h1>
+          <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.85rem" }}>
+            Tap a mood to check in
           </p>
         </div>
+
+        {/* Mood grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }} className="animate-fade-up delay-1">
+          {MOODS.map((mood, idx) => (
+            <button
+              key={mood.label}
+              className={`fv-mood-btn ${selected === mood.label ? "selected" : ""}`}
+              style={{
+                background: selected === mood.label ? mood.bg : "white",
+                borderColor: selected === mood.label ? mood.color : "#D6E9FF",
+                animationDelay: `${idx * 30}ms`,
+              }}
+              onClick={() => setSelected(mood.label)}
+            >
+              <span className="fv-mood-emoji">{mood.emoji}</span>
+              <span className="fv-mood-label" style={{ color: selected === mood.label ? mood.color : "#6B7A99" }}>
+                {mood.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Reward teaser */}
+        {!rewarded && (
+          <div style={{
+            textAlign: "center",
+            marginBottom: 16,
+            background: "#FFF8E7",
+            border: "1px solid #FFE08A",
+            borderRadius: 14,
+            padding: "8px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            fontSize: "0.82rem",
+            fontWeight: 700,
+            color: "#C17D00",
+          }} className="animate-fade-up delay-2">
+            <span>🪙</span> +50 Gold check-in reward
+          </div>
+        )}
+
+        <button
+          className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg animate-fade-up delay-3"
+          disabled={!selected}
+          onClick={handleContinue}
+        >
+          Continue
+        </button>
       </div>
-    </AppShell>
+    </FVShell>
   );
 }
