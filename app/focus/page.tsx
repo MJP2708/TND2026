@@ -8,6 +8,7 @@ import { Mascot } from "@/components/focusville/Mascot";
 import { calcReward } from "@/lib/ai-planner";
 import { RotateCcw, Pause, Play, ChevronDown, ChevronLeft, CheckCircle2 } from "lucide-react";
 import type { Task } from "@/lib/types";
+import { saveFocusSession } from "@/lib/actions/focus";
 
 type Phase = "idle" | "running" | "paused" | "done";
 
@@ -149,6 +150,15 @@ function FocusPageInner() {
         ),
       };
     });
+    // Persist session to DB (best-effort)
+    saveFocusSession({
+      taskId: task.id,
+      minutes: Math.round(elapsed / 60),
+      completion,
+      goldEarned: reward.gold,
+      xpEarned: reward.xp,
+    }).catch(() => {});
+
     setShowCompleted(true);
     setPhase("idle");
     setElapsed(0);

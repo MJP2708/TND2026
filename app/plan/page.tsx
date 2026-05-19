@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { generatePlan } from "@/lib/ai-planner";
+import { savePlan, completeTask as completeTaskDB } from "@/lib/actions/tasks";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
 import { ChevronLeft, Calendar, Sparkles, Clock, CheckCircle2, Play } from "lucide-react";
@@ -290,7 +291,7 @@ export default function PlanPage() {
             disabled={generating}
             onClick={() => {
               setGenerating(true);
-              setTimeout(() => {
+              setTimeout(async () => {
                 const newGoal: Goal = {
                   id: "goal-" + Date.now(),
                   title: goalText,
@@ -302,6 +303,17 @@ export default function PlanPage() {
                   createdAt: new Date().toISOString(),
                 };
                 const tasks = generatePlan(newGoal);
+                // Save to DB (best-effort)
+                try {
+                  await savePlan(tasks, {
+                    title: newGoal.title,
+                    deadline: newGoal.deadline,
+                    dailyHours: newGoal.dailyHours,
+                    energy: newGoal.energy,
+                    difficulty: newGoal.difficulty,
+                    category: newGoal.category,
+                  });
+                } catch { /* offline fallback */ }
                 patch((s) => ({ ...s, goal: newGoal, tasks, hasOnboarded: true }));
                 setPreviewTasks(tasks);
                 setGenerating(false);

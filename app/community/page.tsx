@@ -1,57 +1,387 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useTransition, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
-import { CurrencyDisplay } from "@/components/focusville/CurrencyDisplay";
-import { Settings, MapPin, MessageCircle, Rss, Search, Plus, ArrowUp, ArrowLeft, ArrowRight, ArrowDown } from "lucide-react";
+import { CityGrid } from "@/components/city/CityGrid";
+import { PostCard } from "@/components/neighborhood/PostCard";
+import { createPost, getOrCreateDM } from "@/lib/actions/posts";
+import {
+  Search, Send, MessageCircle, UserPlus, X, Loader2,
+  MapPin, Rss, ChevronLeft,
+} from "lucide-react";
 
-type CityTab = "city" | "neighborhood";
+type MainTab = "city" | "neighborhood";
+type NeighborhoodTab = "feed" | "map" | "chat" | "search";
 
-/* Isometric building shapes */
-const CITY_BUILDINGS = [
-  { id: "b1", name: "Study Desk",  icon: "📚", unlocked: true,  x: 20,  y: 45, w: 70, h: 55, color: "#8EC5FF" },
-  { id: "b2", name: "Bookshelf",   icon: "📖", unlocked: true,  x: 100, y: 30, w: 80, h: 70, color: "#7EDC8A" },
-  { id: "b3", name: "Coffee Shop", icon: "☕", unlocked: true,  x: 195, y: 50, w: 65, h: 50, color: "#FFAD5E" },
-  { id: "b4", name: "Tech Studio", icon: "💻", unlocked: false, x: 270, y: 35, w: 75, h: 65, color: "#A78BFA" },
-  { id: "b5", name: "Bookstore",   icon: "🏫", unlocked: false, x: 50,  y: 120, w: 80, h: 60, color: "#FFD45E" },
-  { id: "b6", name: "Park",        icon: "🌳", unlocked: true,  x: 160, y: 130, w: 60, h: 45, color: "#7EDC8A" },
-  { id: "b7", name: "Home",        icon: "🏠", unlocked: true,  x: 250, y: 120, w: 85, h: 70, color: "#5EA9FF" },
-];
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-const HASHTAGS = [
-  { text: "#ExamSeason",       x: 30,  y: 25  },
-  { text: "#MedSchoolJourney", x: 120, y: 60  },
-  { text: "#Burnout",          x: 50,  y: 110 },
-  { text: "#NeedMotivation",   x: 160, y: 140 },
-  { text: "#StudyStreak",      x: 240, y: 85  },
-];
+// ── City tab ──────────────────────────────────────────────────────────────────
 
-const NEIGHBORS = [
-  { id: "n1", emoji: "😊", name: "Anonymous A", streak: 12, level: 6, message: "Two weeks strong! Keep going!" },
-  { id: "n2", emoji: "😌", name: "Anonymous B", streak: 5,  level: 3, message: "Slow and steady wins the race." },
-  { id: "n3", emoji: "😴", name: "Anonymous C", streak: 3,  level: 2, message: "Hard day but still showed up." },
-  { id: "n4", emoji: "🤩", name: "Anonymous D", streak: 20, level: 9, message: "20 days! What are you doing?!" },
-];
+function CityTab() {
+  const { state, patch } = useStore();
+  const { data: cityData, mutate: mutateCity } = useSWR("/api/user/state", fetcher, { refreshInterval: 0 });
+
+  const buildings = cityData?.city?.buildings ?? [];
+  const gold = cityData?.user?.gold ?? state.gold;
+
+  function handleCityUpdate() {
+    mutateCity();
+    // Also refresh store gold
+    fetch("/api/user/state").then((r) => r.json()).then((d) => {
+      if (d.user) patch((s) => ({ ...s, gold: d.user.gold }));
+    });
+  }
+
+  return (
+    <div>
+      {/* City name */}
+      <div style={{
+        padding: "12px 20px",
+        borderBottom: "1px solid #D6E9FF",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
+        <div>
+          <p style={{ margin: 0, fontWeight: 900, fontSize: "1rem", color: "#1D2B53" }}>
+            {cityData?.city?.name ?? "My City"}
+          </p>
+          <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99" }}>
+            {buildings.filter((b: { x: number }) => b.x >= 0).length} buildings placed · {buildings.filter((b: { x: number }) => b.x < 0).length} in inventory
+          </p>
+        </div>
+        <div className="fv-gold">
+          <span>🪙</span>
+          <span>{gold.toLocaleString()}</span>
+        </div>
+      </div>
+
+      <CityGrid buildings={buildings} onUpdate={handleCityUpdate} gold={gold} />
+
+      {/* CTA to shop */}
+      <div style={{ padding: "0 16px" }}>
+        <div className="fv-card" style={{ background: "linear-gradient(135deg, #EBF5FF, #DDEEFF)", textAlign: "center", padding: "16px 20px" }}>
+          <p style={{ margin: "0 0 8px", fontWeight: 800, fontSize: "0.88rem", color: "#1D2B53" }}>
+            Grow your city!
+          </p>
+          <p style={{ margin: "0 0 12px", fontSize: "0.78rem", color: "#6B7A99" }}>
+            Earn gold by focusing and buy buildings in the Shop.
+          </p>
+          <a href="/rewards" className="fv-btn fv-btn-primary fv-btn-sm" style={{ display: "inline-flex", gap: 6, padding: "0 16px", height: 36, textDecoration: "none" }}>
+            🛍 Go to Shop
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Neighborhood tab ──────────────────────────────────────────────────────────
+
+function FeedSection({ userId }: { userId: string }) {
+  const [page, setPage] = useState(0);
+  const [allPosts, setAllPosts] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [postText, setPostText] = useState("");
+  const [posting, startPosting] = useTransition();
+
+  async function loadMore() {
+    if (loading || !hasMore) return;
+    setLoading(true);
+    const res = await fetch(`/api/posts?page=${page}`);
+    const data = await res.json();
+    setAllPosts((prev) => page === 0 ? data.posts : [...prev, ...data.posts]);
+    setHasMore(data.hasMore);
+    setPage((p) => p + 1);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadMore(); }, []);
+
+  async function handlePost(e: React.FormEvent) {
+    e.preventDefault();
+    if (!postText.trim()) return;
+    const fd = new FormData();
+    fd.append("content", postText.trim());
+    startPosting(async () => {
+      const result = await createPost(fd);
+      if (result.success) {
+        setPostText("");
+        setPage(0);
+        setAllPosts([]);
+        setHasMore(true);
+        const res = await fetch("/api/posts?page=0");
+        const data = await res.json();
+        setAllPosts(data.posts);
+        setHasMore(data.hasMore);
+        setPage(1);
+      }
+    });
+  }
+
+  return (
+    <div style={{ padding: "12px 16px" }}>
+      {/* Create post */}
+      <form onSubmit={handlePost} style={{ marginBottom: 14 }}>
+        <div className="fv-card" style={{ padding: "10px 12px" }}>
+          <textarea
+            className="fv-textarea"
+            placeholder="Share your progress, a win, or a thought… 🌟"
+            value={postText}
+            onChange={(e) => setPostText(e.target.value)}
+            rows={2}
+            style={{ minHeight: 60, marginBottom: 8, fontSize: "0.85rem" }}
+          />
+          <div className="row between">
+            <span style={{ fontSize: "0.72rem", color: "#6B7A99" }}>{postText.length}/500</span>
+            <button
+              type="submit"
+              className="fv-btn fv-btn-primary fv-btn-sm"
+              disabled={!postText.trim() || postText.length > 500 || posting}
+              style={{ height: 32, padding: "0 14px", gap: 5 }}
+            >
+              <Send size={13} /> Post
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* Posts */}
+      {allPosts.length === 0 && !loading && (
+        <div style={{ textAlign: "center", padding: "40px 20px" }}>
+          <Mascot size={60} mood="idle" />
+          <p style={{ margin: "12px 0 0", color: "#6B7A99", fontSize: "0.85rem" }}>
+            No posts yet. Be the first to share! 🎉
+          </p>
+        </div>
+      )}
+
+      {allPosts.map((post) => (
+        <PostCard key={post.id} post={post} currentUserId={userId} />
+      ))}
+
+      {hasMore && (
+        <button
+          className="fv-btn fv-btn-ghost fv-btn-full"
+          onClick={loadMore}
+          disabled={loading}
+          style={{ marginTop: 8 }}
+        >
+          {loading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : "Load more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MapSection() {
+  const { data, isLoading } = useSWR("/api/search?q=a", fetcher);
+  const users = data?.users ?? [];
+
+  return (
+    <div style={{ padding: "12px 16px" }}>
+      <div style={{
+        background: "linear-gradient(180deg, #B8E4FF 0%, #D4EEFF 45%, #C8EBB5 75%, #A8D98A 100%)",
+        borderRadius: 20,
+        height: 180,
+        position: "relative",
+        overflow: "hidden",
+        marginBottom: 16,
+      }}>
+        {users.slice(0, 6).map((u: any, i: number) => (
+          <div key={u.id} style={{
+            position: "absolute",
+            left: `${15 + (i % 3) * 30}%`,
+            top: `${20 + Math.floor(i / 3) * 45}%`,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 2,
+          }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: "50%",
+              background: `hsl(${(i * 60) % 360}, 70%, 65%)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "0.7rem", fontWeight: 800, color: "white",
+              border: "2px solid white",
+            }}>
+              {(u.displayName ?? u.name ?? "U").slice(0, 2).toUpperCase()}
+            </div>
+            <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "#1D2B53", background: "rgba(255,255,255,0.8)", borderRadius: 4, padding: "1px 4px" }}>
+              🔥{u.streak}
+            </span>
+          </div>
+        ))}
+        {users.length === 0 && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Mascot size={50} mood="idle" float />
+          </div>
+        )}
+      </div>
+
+      <div className="stack gap-8">
+        {users.map((u: any) => (
+          <NeighborCard key={u.id} user={u} />
+        ))}
+        {users.length === 0 && (
+          <p style={{ margin: 0, textAlign: "center", color: "#6B7A99", fontSize: "0.82rem" }}>
+            No neighbors yet. Invite friends!
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NeighborCard({ user }: { user: any }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const name = user.displayName ?? user.name ?? "User";
+
+  function handleChat() {
+    startTransition(async () => {
+      const result = await getOrCreateDM(user.id);
+      if (result.roomId) router.push(`/chat/${result.roomId}`);
+    });
+  }
+
+  return (
+    <div className="fv-card" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: "50%",
+        background: "linear-gradient(135deg, #5EA9FF, #7EDC8A)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: "0.78rem", fontWeight: 800, color: "white", flexShrink: 0,
+      }}>
+        {name.slice(0, 2).toUpperCase()}
+      </div>
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>{name}</p>
+        <p style={{ margin: "1px 0 0", fontSize: "0.7rem", color: "#6B7A99" }}>
+          🔥{user.streak} · Lv.{user.level} · {Math.round((user.focusMinutes ?? 0) / 60)}h focus
+        </p>
+      </div>
+      <button
+        onClick={handleChat}
+        className="fv-btn fv-btn-secondary fv-btn-sm"
+        style={{ height: 32, padding: "0 10px", gap: 4 }}
+        disabled={isPending}
+      >
+        <MessageCircle size={13} /> Chat
+      </button>
+    </div>
+  );
+}
+
+function SearchSection() {
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 400);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const { data, isLoading } = useSWR(
+    debouncedQuery.length >= 2 ? `/api/search?q=${encodeURIComponent(debouncedQuery)}` : null,
+    fetcher
+  );
+
+  return (
+    <div style={{ padding: "12px 16px" }}>
+      <div style={{ position: "relative", marginBottom: 14 }}>
+        <Search size={16} color="#6B7A99" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }} />
+        <input
+          className="fv-input"
+          placeholder="Search users or posts…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ paddingLeft: 36 }}
+        />
+      </div>
+
+      {isLoading && (
+        <div style={{ textAlign: "center", padding: 20 }}>
+          <Loader2 size={24} color="#5EA9FF" style={{ animation: "spin 1s linear infinite" }} />
+        </div>
+      )}
+
+      {data && (
+        <>
+          {data.users?.length > 0 && (
+            <>
+              <p style={{ margin: "0 0 8px", fontWeight: 800, fontSize: "0.78rem", color: "#1D2B53" }}>Users</p>
+              <div className="stack gap-8" style={{ marginBottom: 14 }}>
+                {data.users.map((u: any) => <NeighborCard key={u.id} user={u} />)}
+              </div>
+            </>
+          )}
+          {data.posts?.length > 0 && (
+            <>
+              <p style={{ margin: "0 0 8px", fontWeight: 800, fontSize: "0.78rem", color: "#1D2B53" }}>Posts</p>
+              {data.posts.map((p: any) => (
+                <div key={p.id} className="fv-card" style={{ marginBottom: 8 }}>
+                  <p style={{ margin: "0 0 4px", fontSize: "0.78rem", fontWeight: 700, color: "#5EA9FF" }}>
+                    {p.user.displayName ?? p.user.name}
+                  </p>
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "#1D2B53" }}>{p.content}</p>
+                </div>
+              ))}
+            </>
+          )}
+          {data.users?.length === 0 && data.posts?.length === 0 && debouncedQuery.length >= 2 && (
+            <p style={{ textAlign: "center", color: "#6B7A99", fontSize: "0.82rem", padding: "20px 0" }}>
+              No results for &ldquo;{debouncedQuery}&rdquo;
+            </p>
+          )}
+        </>
+      )}
+
+      {debouncedQuery.length < 2 && !isLoading && (
+        <p style={{ textAlign: "center", color: "#6B7A99", fontSize: "0.82rem", padding: "20px 0" }}>
+          Type at least 2 characters to search
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ChatListSection({ userId }: { userId: string }) {
+  const router = useRouter();
+  const { data, isLoading } = useSWR("/api/user/state", fetcher);
+
+  return (
+    <div style={{ padding: "12px 16px" }}>
+      <p style={{ margin: "0 0 12px", fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
+        Your Chats
+      </p>
+      <div style={{ textAlign: "center", padding: "30px 0" }}>
+        <MessageCircle size={40} color="#D6E9FF" style={{ marginBottom: 10 }} />
+        <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.82rem" }}>
+          Visit a neighbor&apos;s profile and tap Chat to start a conversation!
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CommunityPage() {
   const { state } = useStore();
-  const [tab, setTab]               = useState<CityTab>("city");
-  const [mascotPos, setMascotPos]   = useState({ x: 140, y: 90 });
-  const [selected, setSelected]     = useState<string | null>(null);
+  const [mainTab, setMainTab] = useState<MainTab>("city");
+  const [neighTab, setNeighTab] = useState<NeighborhoodTab>("feed");
 
-  function moveMascot(dx: number, dy: number) {
-    setMascotPos((p) => ({
-      x: Math.max(10, Math.min(330, p.x + dx)),
-      y: Math.max(10, Math.min(180, p.y + dy)),
-    }));
-  }
+  const userId = state.userId ?? "";
 
   return (
     <FVShell>
       <div style={{ padding: "0 0 20px" }}>
-
         {/* Header */}
         <div style={{
           background: "white",
@@ -62,454 +392,63 @@ export default function CommunityPage() {
           alignItems: "center",
         }}>
           <div>
-            <div className="row gap-10">
-              <div style={{
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, #5EA9FF, #3D8FE8)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.75rem",
-                fontWeight: 800,
-                color: "white",
-              }}>
-                {state.displayName.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
-                  {state.displayName} · Lv.{state.level}
-                </p>
-              </div>
-            </div>
+            <h1 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 900, color: "#1D2B53" }}>
+              {mainTab === "city" ? "🏙 My City" : "🌍 Neighborhood"}
+            </h1>
           </div>
           <div className="row gap-8">
             <div className="fv-gold"><span>🪙</span><span>{state.gold.toLocaleString()}</span></div>
-            <div className="fv-xp"><span>💎</span><span>{state.xp.toLocaleString()}</span></div>
-            <button style={{ background: "none", border: "none", cursor: "pointer" }}>
-              <Settings size={18} color="#6B7A99" />
-            </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ padding: "12px 20px 0" }}>
-          <div className="fv-tabs">
-            <button className={`fv-tab ${tab === "city" ? "active" : ""}`} onClick={() => setTab("city")}>
-              🏙 My City
-            </button>
-            <button className={`fv-tab ${tab === "neighborhood" ? "active" : ""}`} onClick={() => setTab("neighborhood")}>
-              🤝 Neighborhood
-            </button>
-          </div>
+        {/* Main tab bar */}
+        <div className="fv-tabs" style={{ margin: "10px 20px 0" }}>
+          <button
+            className={`fv-tab ${mainTab === "city" ? "active" : ""}`}
+            onClick={() => setMainTab("city")}
+          >
+            🏙 My City
+          </button>
+          <button
+            className={`fv-tab ${mainTab === "neighborhood" ? "active" : ""}`}
+            onClick={() => setMainTab("neighborhood")}
+          >
+            🌍 Neighborhood
+          </button>
         </div>
 
-        {tab === "city" ? (
-          <div style={{ padding: "16px 20px" }}>
-            {/* City canvas */}
-            <div style={{
-              background: "linear-gradient(180deg, #B8E4FF 0%, #D4EEFF 45%, #C8EBB5 75%, #A8D98A 100%)",
-              borderRadius: 20,
-              position: "relative",
-              height: 240,
-              overflow: "hidden",
-              marginBottom: 12,
-            }}>
-              {/* Sky dots / stars */}
-              {[{x:10,y:12},{x:60,y:8},{x:130,y:15},{x:200,y:7},{x:280,y:12},{x:330,y:18}].map((p,i)=>(
-                <div key={i} style={{position:"absolute",left:p.x,top:p.y,width:3,height:3,borderRadius:"50%",background:"rgba(255,255,255,0.8)"}}/>
-              ))}
-
-              {/* Buildings */}
-              {CITY_BUILDINGS.map((b) => (
-                <div
-                  key={b.id}
-                  onClick={() => setSelected(selected === b.id ? null : b.id)}
-                  style={{
-                    position: "absolute",
-                    left: b.x,
-                    top: b.y,
-                    width: b.w,
-                    height: b.h,
-                    background: b.unlocked ? b.color : "#D6E9FF",
-                    borderRadius: "8px 8px 4px 4px",
-                    cursor: "pointer",
-                    border: selected === b.id ? "2px solid #1D2B53" : "1px solid rgba(255,255,255,0.4)",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: b.unlocked ? "2px 4px 12px rgba(0,0,0,0.12)" : "none",
-                    opacity: b.unlocked ? 1 : 0.5,
-                    transition: "transform 150ms ease",
-                    transform: selected === b.id ? "scale(1.06)" : "scale(1)",
-                  }}
-                >
-                  <span style={{ fontSize: b.h > 55 ? "1.4rem" : "1rem" }}>{b.icon}</span>
-                  {b.w > 65 && b.h > 50 && (
-                    <p style={{ margin: "2px 0 0", fontSize: "0.6rem", fontWeight: 700, color: b.unlocked ? "#1D2B53" : "#6B7A99", textAlign: "center", lineHeight: 1.2 }}>
-                      {b.name}
-                    </p>
-                  )}
-                  {!b.unlocked && (
-                    <div style={{
-                      position: "absolute",
-                      top: -8,
-                      right: -8,
-                      width: 20,
-                      height: 20,
-                      borderRadius: "50%",
-                      background: "#6B7A99",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "0.6rem",
-                    }}>🔒</div>
-                  )}
-                </div>
-              ))}
-
-              {/* Trees */}
-              {[{x:10,y:185},{x:90,y:190},{x:175,y:190},{x:230,y:185},{x:305,y:188}].map((t,i)=>(
-                <div key={i} style={{position:"absolute",left:t.x,top:t.y,fontSize:"1.6rem",lineHeight:1}}>🌳</div>
-              ))}
-
-              {/* Ground path */}
-              <div style={{
-                position: "absolute",
-                bottom: 0,
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: 20,
-                height: "60%",
-                background: "rgba(255,255,255,0.3)",
-                borderRadius: 4,
-              }} />
-              <div style={{
-                position: "absolute",
-                bottom: "30%",
-                left: 0,
-                right: 0,
-                height: 20,
-                background: "rgba(255,255,255,0.3)",
-                borderRadius: 4,
-              }} />
-
-              {/* Mascot */}
-              <div style={{
-                position: "absolute",
-                left: mascotPos.x,
-                top: mascotPos.y,
-                transform: "translate(-50%, -100%)",
-                animation: "mascot-float 2s ease-in-out infinite",
-                zIndex: 10,
-                transition: "left 200ms ease, top 200ms ease",
-              }}>
-                <Mascot size={36} mood="happy" />
-              </div>
-
-              {/* Building tooltip */}
-              {selected && (() => {
-                const b = CITY_BUILDINGS.find((b) => b.id === selected);
-                return b ? (
-                  <div style={{
-                    position: "absolute",
-                    bottom: 8,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    background: "rgba(29, 43, 83, 0.92)",
-                    color: "white",
-                    borderRadius: 10,
-                    padding: "6px 14px",
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    whiteSpace: "nowrap",
-                    zIndex: 20,
-                  }}>
-                    {b.icon} {b.name} {!b.unlocked && "— Locked"}
-                  </div>
-                ) : null;
-              })()}
-            </div>
-
-            <p style={{ margin: "0 0 12px", textAlign: "center", fontSize: "0.75rem", color: "#6B7A99", fontWeight: 600 }}>
-              Walk around, build, and expand your city!
-            </p>
-
-            {/* Controls */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              {/* D-pad */}
-              <div style={{ position: "relative", width: 96, height: 96 }}>
-                {/* Up */}
-                <button
-                  onClick={() => moveMascot(0, -20)}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: 32,
-                    height: 32,
-                    background: "white",
-                    border: "1px solid #D6E9FF",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ArrowUp size={14} color="#5EA9FF" />
-                </button>
-                {/* Left */}
-                <button
-                  onClick={() => moveMascot(-20, 0)}
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: 0,
-                    transform: "translateY(-50%)",
-                    width: 32,
-                    height: 32,
-                    background: "white",
-                    border: "1px solid #D6E9FF",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ArrowLeft size={14} color="#5EA9FF" />
-                </button>
-                {/* Center */}
-                <div style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  width: 32,
-                  height: 32,
-                  background: "#EBF5FF",
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}>
-                  <Mascot size={20} mood="happy" />
-                </div>
-                {/* Right */}
-                <button
-                  onClick={() => moveMascot(20, 0)}
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    right: 0,
-                    transform: "translateY(-50%)",
-                    width: 32,
-                    height: 32,
-                    background: "white",
-                    border: "1px solid #D6E9FF",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ArrowRight size={14} color="#5EA9FF" />
-                </button>
-                {/* Down */}
-                <button
-                  onClick={() => moveMascot(0, 20)}
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    width: 32,
-                    height: 32,
-                    background: "white",
-                    border: "1px solid #D6E9FF",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ArrowDown size={14} color="#5EA9FF" />
-                </button>
-              </div>
-
-              {/* Build/Edit/Move/Sell */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                {[
-                  { label: "Edit",  icon: "✏️" },
-                  { label: "Move",  icon: "↔️" },
-                  { label: "Build", icon: "🏗" },
-                  { label: "Sell",  icon: "💰" },
-                ].map((action) => (
-                  <button
-                    key={action.label}
-                    style={{
-                      background: "white",
-                      border: "1px solid #D6E9FF",
-                      borderRadius: 12,
-                      padding: "6px 10px",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
-                      color: "#6B7A99",
-                    }}
-                  >
-                    {action.icon} {action.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* City tab */}
+        {mainTab === "city" && (
+          <div style={{ marginTop: 12 }}>
+            <CityTab />
           </div>
-        ) : (
-          /* ── Neighborhood tab ── */
-          <div style={{ padding: "16px 20px" }}>
-            {/* Map */}
-            <div style={{
-              background: "linear-gradient(135deg, #C8EBB5, #A8D98A, #B8E4FF)",
-              borderRadius: 20,
-              position: "relative",
-              height: 200,
-              overflow: "hidden",
-              marginBottom: 12,
-            }}>
-              {/* Houses on map */}
-              {[
-                { x: 30,  y: 30,  size: 44, c: "#5EA9FF"  },
-                { x: 100, y: 60,  size: 38, c: "#FFD45E"  },
-                { x: 200, y: 25,  size: 50, c: "#7EDC8A"  },
-                { x: 270, y: 70,  size: 42, c: "#FFAD5E"  },
-                { x: 60,  y: 130, size: 36, c: "#A78BFA"  },
-                { x: 160, y: 120, size: 48, c: "#5EA9FF"  },
-                { x: 290, y: 130, size: 40, c: "#FF7B7B"  },
-              ].map((h, i) => (
-                <div key={i} style={{
-                  position: "absolute",
-                  left: h.x,
-                  top: h.y,
-                  width: h.size,
-                  height: h.size,
-                  background: h.c,
-                  borderRadius: 10,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.4rem",
-                  boxShadow: "2px 3px 10px rgba(0,0,0,0.12)",
-                  border: "2px solid white",
-                }}>
-                  🏠
-                </div>
-              ))}
+        )}
 
-              {/* Hashtag bubbles */}
-              {HASHTAGS.map((h, i) => (
-                <div
-                  key={i}
-                  className="fv-hashtag"
-                  style={{ position: "absolute", left: h.x, top: h.y, zIndex: 5 }}
-                >
-                  {h.text}
-                </div>
-              ))}
-
-              {/* Roads */}
-              <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 3, background: "rgba(255,255,255,0.5)", transform: "translateY(-50%)" }} />
-              <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 3, background: "rgba(255,255,255,0.5)", transform: "translateX(-50%)" }} />
-            </div>
-
-            <p style={{ margin: "0 0 12px", textAlign: "center", fontSize: "0.75rem", color: "#6B7A99", fontWeight: 600 }}>
-              Visit neighbors, send love, and support each other!
-            </p>
-
-            {/* Community actions */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
-              {[
-                { icon: <MapPin size={18} />, label: "Map" },
-                { icon: <MessageCircle size={18} />, label: "Chat" },
-                { icon: <Rss size={18} />, label: "Feed" },
-                { icon: <Search size={18} />, label: "Search" },
-              ].map((a) => (
+        {/* Neighborhood tab */}
+        {mainTab === "neighborhood" && (
+          <div>
+            {/* Sub-tabs */}
+            <div className="fv-scroll-tabs" style={{ margin: "10px 0 0", padding: "0 16px" }}>
+              {([
+                { key: "feed",   label: "📝 Feed"   },
+                { key: "map",    label: "🗺 Map"     },
+                { key: "chat",   label: "💬 Chats"  },
+                { key: "search", label: "🔍 Search" },
+              ] as { key: NeighborhoodTab; label: string }[]).map(({ key, label }) => (
                 <button
-                  key={a.label}
-                  style={{
-                    background: "white",
-                    border: "1px solid #D6E9FF",
-                    borderRadius: 14,
-                    padding: "10px 4px",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    color: "#6B7A99",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 4,
-                    fontSize: "0.65rem",
-                    fontWeight: 700,
-                  }}
+                  key={key}
+                  className={`fv-scroll-tab ${neighTab === key ? "active" : ""}`}
+                  onClick={() => setNeighTab(key)}
                 >
-                  {a.icon}
-                  {a.label}
+                  {label}
                 </button>
               ))}
             </div>
 
-            {/* Neighbors */}
-            <div className="stack gap-10">
-              {NEIGHBORS.map((n) => (
-                <div key={n.id} className="fv-card" style={{ padding: "12px 14px" }}>
-                  <div className="row between">
-                    <div className="row gap-10">
-                      <div style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: "linear-gradient(135deg, #EBF5FF, #DDEEFF)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "1.3rem",
-                        border: "2px solid #D6E9FF",
-                      }}>
-                        {n.emoji}
-                      </div>
-                      <div>
-                        <p style={{ margin: 0, fontWeight: 700, fontSize: "0.83rem", color: "#1D2B53" }}>{n.name}</p>
-                        <p style={{ margin: "2px 0 0", fontSize: "0.68rem", color: "#6B7A99" }}>
-                          🔥 {n.streak} streak · Lv.{n.level}
-                        </p>
-                      </div>
-                    </div>
-                    <button style={{
-                      background: "linear-gradient(135deg, #EBF5FF, #DDEEFF)",
-                      border: "1px solid #D6E9FF",
-                      borderRadius: 999,
-                      padding: "4px 12px",
-                      fontSize: "0.72rem",
-                      fontWeight: 700,
-                      color: "#5EA9FF",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}>
-                      ❤️ Send love
-                    </button>
-                  </div>
-                  <p style={{ margin: "8px 0 0", fontSize: "0.78rem", color: "#6B7A99", fontStyle: "italic" }}>
-                    "{n.message}"
-                  </p>
-                </div>
-              ))}
-            </div>
+            {neighTab === "feed"   && <FeedSection userId={userId} />}
+            {neighTab === "map"    && <MapSection />}
+            {neighTab === "chat"   && <ChatListSection userId={userId} />}
+            {neighTab === "search" && <SearchSection />}
           </div>
         )}
       </div>

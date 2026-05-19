@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import { AppStateProvider } from "@/lib/store";
+import { auth } from "@/auth";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -27,13 +28,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+
   return (
     <html lang="en" className={poppins.variable}>
       <body style={{ fontFamily: "var(--font-poppins, Poppins, system-ui, sans-serif)" }}>
-        <AppStateProvider>{children}</AppStateProvider>
+        <AppStateProvider userId={userId}>{children}</AppStateProvider>
       </body>
     </html>
   );
