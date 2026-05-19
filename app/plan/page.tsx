@@ -51,6 +51,7 @@ export default function PlanPage() {
   function handleCompleteTask(task: Task) {
     if (task.status === "completed") return;
     const today = new Date().toISOString().slice(0, 10);
+    // Optimistic UI update
     patch((s) => {
       const last = s.lastActiveDate;
       const yesterday = new Date();
@@ -71,6 +72,8 @@ export default function PlanPage() {
         ),
       };
     });
+    // Persist to DB (best-effort — server validates rewards independently)
+    completeTaskDB(task.id).catch(() => {});
   }
 
   const totalTasks  = state.tasks.filter((t) => !t.isRecovery).length;

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
-import { ShoppingBag, Check, X } from "lucide-react";
+import { ShoppingBag, Check, X, Loader2 } from "lucide-react";
+import { buyItem as buyItemAction } from "@/lib/actions/shop";
 
 type ShopTab = "Buildings" | "Decor" | "Upgrades";
 
@@ -45,8 +46,9 @@ const SHOP_ITEMS: Record<ShopTab, {
 export default function ShopPage() {
   const { state, patch } = useStore();
   const [tab, setTab]               = useState<ShopTab>("Buildings");
-  const [justBought, setJustBought] = useState<string | null>(null);
-  const [toast, setToast]           = useState<string | null>(null);
+  const [justBought, setJustBought]   = useState<string | null>(null);
+  const [toast, setToast]             = useState<string | null>(null);
+  const [isPending, startTransition]  = useTransition();
 
   const ownedItems = new Set(state.purchasedItems ?? []);
 
@@ -56,18 +58,25 @@ export default function ShopPage() {
   }
 
   function buyItem(itemId: string, cost: number) {
-    if (ownedItems.has(itemId)) return;
+    if (ownedItems.has(itemId) || isPending) return;
     if (state.gold < cost) {
       showToast(`Not enough gold! You need ${cost} 🪙 but have ${state.gold} 🪙. Keep focusing!`);
       return;
     }
-    patch((s) => ({
-      ...s,
-      gold: s.gold - cost,
-      purchasedItems: [...(s.purchasedItems ?? []), itemId],
-    }));
-    setJustBought(itemId);
-    setTimeout(() => setJustBought(null), 2000);
+    startTransition(async () => {
+      const result = await buyItemAction(itemId);
+      if ("error" in result) {
+        showToast(result.error ?? "Purchase failed");
+        return;
+      }
+      patch((s) => ({
+        ...s,
+        gold: result.newGold,
+        purchasedItems: [...(s.purchasedItems ?? []), itemId],
+      }));
+      setJustBought(itemId);
+      setTimeout(() => setJustBought(null), 2000);
+    });
   }
 
   const items = SHOP_ITEMS[tab];
@@ -139,9 +148,10 @@ export default function ShopPage() {
         <div style={{ padding: "16px 20px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
             {items.map((item, idx) => {
-              const owned  = ownedItems.has(item.id);
-              const canBuy = state.gold >= item.cost && !owned;
-              const buying = justBought === item.id;
+              const owned   = ownedItems.has(item.id);
+              const canBuy  = state.gold >= item.cost && !owned;
+              const buying  = justBought === item.id;
+              const loading = isPending && !owned && state.gold >= item.cost;
 
               return (
                 <div
@@ -175,6 +185,8 @@ export default function ShopPage() {
                       <Check size={10} />
                       Owned
                     </div>
+                  ) : loading ? (
+                    <Loader2 size={14} color="#5EA9FF" style={{ animation: "spin 1s linear infinite" }} />
                   ) : (
                     <div className="fv-gold" style={{ fontSize: "0.72rem", padding: "3px 8px" }}>
                       🪙 {item.cost}

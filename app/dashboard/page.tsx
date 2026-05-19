@@ -6,6 +6,7 @@ import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
 import { CurrencyDisplay } from "@/components/focusville/CurrencyDisplay";
 import { Bell, CheckCircle2, Clock, ChevronRight } from "lucide-react";
+import { completeTask as completeTaskDB } from "@/lib/actions/tasks";
 
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 
@@ -57,18 +58,28 @@ export default function DashboardPage() {
   const focusHrs    = (state.focusMinutes / 60).toFixed(1);
 
   function toggleTask(id: string) {
-    patch((s) => ({
-      ...s,
-      tasks: s.tasks.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              status: t.status === "completed" ? "pending" : "completed",
-              completion: t.status === "completed" ? 0 : 100,
-            }
-          : t
-      ),
-    }));
+    const task = state.tasks.find((t) => t.id === id);
+    if (!task || task.status === "completed") return;
+    const today = new Date().toISOString().slice(0, 10);
+    patch((s) => {
+      const last = s.lastActiveDate;
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yStr = yesterday.toISOString().slice(0, 10);
+      const newStreak = last === today ? s.streak : last === yStr ? s.streak + 1 : 1;
+      return {
+        ...s,
+        gold: s.gold + task.gold,
+        xp: s.xp + task.xp,
+        focusMinutes: s.focusMinutes + task.minutes,
+        streak: newStreak,
+        lastActiveDate: today,
+        tasks: s.tasks.map((t) =>
+          t.id === id ? { ...t, status: "completed", completion: 100 } : t
+        ),
+      };
+    });
+    completeTaskDB(id).catch(() => {});
   }
 
   return (
