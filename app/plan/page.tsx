@@ -6,8 +6,8 @@ import { useStore } from "@/lib/store";
 import { generatePlan } from "@/lib/ai-planner";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
-import { ChevronLeft, Calendar, Sparkles, Clock, CheckCircle2 } from "lucide-react";
-import type { Goal, GoalCategory, EnergyLevel, DifficultyLevel } from "@/lib/types";
+import { ChevronLeft, Calendar, Sparkles, Clock, CheckCircle2, Play } from "lucide-react";
+import type { Goal, GoalCategory, EnergyLevel, DifficultyLevel, Task } from "@/lib/types";
 
 type Step = "goal" | "planning" | "plan";
 
@@ -46,6 +46,31 @@ export default function PlanPage() {
   const [category, setCategory] = useState<GoalCategory>("study");
   const [generating, setGenerating] = useState(false);
   const [previewTasks, setPreviewTasks] = useState(state.tasks);
+
+  function handleCompleteTask(task: Task) {
+    if (task.status === "completed") return;
+    const today = new Date().toISOString().slice(0, 10);
+    patch((s) => {
+      const last = s.lastActiveDate;
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yStr = yesterday.toISOString().slice(0, 10);
+      const newStreak = last === today ? s.streak : last === yStr ? s.streak + 1 : 1;
+      return {
+        ...s,
+        gold: s.gold + task.gold,
+        xp: s.xp + task.xp,
+        focusMinutes: s.focusMinutes + task.minutes,
+        streak: newStreak,
+        lastActiveDate: today,
+        tasks: s.tasks.map((t) =>
+          t.id === task.id
+            ? { ...t, status: "completed", completion: 100, focusMinutes: t.minutes }
+            : t
+        ),
+      };
+    });
+  }
 
   const totalTasks  = state.tasks.filter((t) => !t.isRecovery).length;
   const doneTasks   = state.tasks.filter((t) => t.status === "completed").length;
@@ -376,11 +401,31 @@ export default function PlanPage() {
               </p>
             )}
             {todayTasks.slice(0, 6).map((task) => (
-              <div key={task.id} className={`fv-task ${task.status === "completed" ? "done" : ""}`}>
-                <div className={`fv-checkbox ${task.status === "completed" ? "checked" : ""}`}>
+              <div key={task.id} className={`fv-task ${task.status === "completed" ? "done" : ""}`}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
+                {/* Checkbox — marks task complete + awards rewards */}
+                <button
+                  onClick={() => handleCompleteTask(task)}
+                  className={`fv-checkbox ${task.status === "completed" ? "checked" : ""}`}
+                  style={{ flexShrink: 0, cursor: task.status === "completed" ? "default" : "pointer" }}
+                  aria-label={task.status === "completed" ? "Task completed" : "Mark as complete"}
+                >
                   {task.status === "completed" && <CheckCircle2 size={14} color="white" />}
-                </div>
-                <div style={{ flex: 1 }}>
+                </button>
+
+                {/* Task body — navigates to focus timer */}
+                <button
+                  onClick={() => task.status !== "completed" && router.push(`/focus?taskId=${task.id}`)}
+                  style={{
+                    flex: 1,
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: task.status === "completed" ? "default" : "pointer",
+                    textAlign: "left",
+                    fontFamily: "inherit",
+                  }}
+                >
                   <p style={{
                     margin: 0,
                     fontSize: "0.85rem",
@@ -389,12 +434,36 @@ export default function PlanPage() {
                     textDecoration: task.status === "completed" ? "line-through" : "none",
                   }}>
                     {task.title}
+                    {task.status === "completed" && (
+                      <span style={{
+                        marginLeft: 8,
+                        fontSize: "0.65rem",
+                        fontWeight: 700,
+                        background: "#D1FAE5",
+                        color: "#059669",
+                        borderRadius: 999,
+                        padding: "2px 7px",
+                        verticalAlign: "middle",
+                      }}>Done</span>
+                    )}
                   </p>
                   <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "#6B7A99" }}>
                     <Clock size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
                     {task.minutes} min · +{task.gold}🪙 +{task.xp}💎
                   </p>
-                </div>
+                </button>
+
+                {/* Focus button — only for pending tasks */}
+                {task.status !== "completed" && (
+                  <button
+                    onClick={() => router.push(`/focus?taskId=${task.id}`)}
+                    className="fv-btn fv-btn-primary fv-btn-sm"
+                    style={{ flexShrink: 0, padding: "0 10px", height: 32, gap: 4 }}
+                    aria-label="Start focus session"
+                  >
+                    <Play size={12} fill="white" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

@@ -36,6 +36,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     return {
       ...defaults,
       ...incoming,
+      purchasedItems: incoming.purchasedItems ?? defaults.purchasedItems,
+      lastMoodDate: incoming.lastMoodDate ?? defaults.lastMoodDate,
       themeMode: incoming.themeMode ?? defaults.themeMode,
       uiTone: incoming.uiTone ?? defaults.uiTone,
       language: incoming.language ?? defaults.language,

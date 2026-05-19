@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
-import { ShoppingBag, Star, Zap, Check } from "lucide-react";
+import { ShoppingBag, Check, X } from "lucide-react";
 
 type ShopTab = "Buildings" | "Decor" | "Upgrades";
 
@@ -45,13 +45,27 @@ const SHOP_ITEMS: Record<ShopTab, {
 export default function ShopPage() {
   const { state, patch } = useStore();
   const [tab, setTab]               = useState<ShopTab>("Buildings");
-  const [purchased, setPurchased]   = useState<Set<string>>(new Set());
   const [justBought, setJustBought] = useState<string | null>(null);
+  const [toast, setToast]           = useState<string | null>(null);
+
+  const ownedItems = new Set(state.purchasedItems ?? []);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  }
 
   function buyItem(itemId: string, cost: number) {
-    if (state.gold < cost || purchased.has(itemId)) return;
-    patch((s) => ({ ...s, gold: s.gold - cost }));
-    setPurchased((prev) => new Set([...prev, itemId]));
+    if (ownedItems.has(itemId)) return;
+    if (state.gold < cost) {
+      showToast(`Not enough gold! You need ${cost} 🪙 but have ${state.gold} 🪙. Keep focusing!`);
+      return;
+    }
+    patch((s) => ({
+      ...s,
+      gold: s.gold - cost,
+      purchasedItems: [...(s.purchasedItems ?? []), itemId],
+    }));
     setJustBought(itemId);
     setTimeout(() => setJustBought(null), 2000);
   }
@@ -61,6 +75,39 @@ export default function ShopPage() {
   return (
     <FVShell>
       <div style={{ padding: "0 0 20px" }}>
+
+        {/* Toast */}
+        {toast && (
+          <div style={{
+            position: "fixed",
+            bottom: 90,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#1D2B53",
+            color: "white",
+            borderRadius: 14,
+            padding: "12px 18px",
+            fontSize: "0.82rem",
+            fontWeight: 700,
+            zIndex: 9999,
+            maxWidth: "90vw",
+            textAlign: "center",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            animation: "fade-in 0.2s ease",
+          }}>
+            <span>💰</span>
+            <span>{toast}</span>
+            <button
+              onClick={() => setToast(null)}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.6)", marginLeft: 4, padding: 0 }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Header */}
         <div style={{
@@ -73,23 +120,9 @@ export default function ShopPage() {
               <ShoppingBag size={20} color="#5EA9FF" />
               <h1 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "#1D2B53" }}>Shop</h1>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div className="fv-gold"><span>🪙</span><span>{state.gold.toLocaleString()}</span></div>
-              <button style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 4,
-              }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="1" y="1" width="14" height="14" rx="3" stroke="#6B7A99" strokeWidth="1.5"/>
-                  <path d="M4 8h8M4 5h8M4 11h5" stroke="#6B7A99" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </button>
-            </div>
+            <div className="fv-gold"><span>🪙</span><span>{state.gold.toLocaleString()}</span></div>
           </div>
 
-          {/* Category tabs */}
           <div className="fv-scroll-tabs">
             {(["Buildings", "Decor", "Upgrades"] as ShopTab[]).map((t) => (
               <button
@@ -104,22 +137,21 @@ export default function ShopPage() {
         </div>
 
         <div style={{ padding: "16px 20px" }}>
-          {/* Items grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
             {items.map((item, idx) => {
-              const owned   = purchased.has(item.id);
-              const canBuy  = state.gold >= item.cost && !owned;
-              const buying  = justBought === item.id;
+              const owned  = ownedItems.has(item.id);
+              const canBuy = state.gold >= item.cost && !owned;
+              const buying = justBought === item.id;
 
               return (
                 <div
                   key={item.id}
-                  className={`fv-shop-card animate-fade-up`}
+                  className="fv-shop-card animate-fade-up"
                   style={{
                     animationDelay: `${idx * 40}ms`,
                     background: owned ? "#F0FFF4" : item.color,
                     border: owned ? "1px solid #B8EDCA" : "1px solid #D6E9FF",
-                    cursor: canBuy ? "pointer" : owned ? "default" : "not-allowed",
+                    cursor: owned ? "default" : "pointer",
                     opacity: !canBuy && !owned ? 0.65 : 1,
                   }}
                   onClick={() => buyItem(item.id, item.cost)}
@@ -169,14 +201,14 @@ export default function ShopPage() {
             </div>
           </div>
 
-          {/* Recently purchased */}
-          {purchased.size > 0 && (
+          {/* Owned items */}
+          {ownedItems.size > 0 && (
             <div className="fv-card" style={{ marginTop: 12 }}>
               <p style={{ margin: "0 0 10px", fontWeight: 800, fontSize: "0.82rem", color: "#1D2B53" }}>
-                ✨ Owned ({purchased.size})
+                ✨ Owned ({ownedItems.size})
               </p>
               <div className="row gap-8 cluster">
-                {[...purchased].map((id) => {
+                {[...ownedItems].map((id) => {
                   const item = Object.values(SHOP_ITEMS).flat().find((i) => i.id === id);
                   return item ? (
                     <span key={id} style={{

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
 import { calcReward } from "@/lib/ai-planner";
-import { RotateCcw, Pause, Play, ChevronDown } from "lucide-react";
+import { RotateCcw, Pause, Play, ChevronDown, ChevronLeft, CheckCircle2 } from "lucide-react";
 import type { Task } from "@/lib/types";
 
 type Phase = "idle" | "running" | "paused" | "done";
@@ -54,17 +55,33 @@ function Confetti() {
   );
 }
 
-export default function FocusPage() {
+function FocusPageInner() {
   const { state, patch, ready } = useStore();
-  const [selectedId, setSelectedId]   = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlTaskId = searchParams.get("taskId") ?? "";
+
+  const [selectedId, setSelectedId]   = useState(urlTaskId);
   const [phase, setPhase]             = useState<Phase>("idle");
   const [elapsed, setElapsed]         = useState(0);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showSelector, setShowSelector]   = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const pendingTasks = state.tasks.filter((t) => t.status !== "completed" && !t.isRecovery);
-  const task: Task | undefined = pendingTasks.find((t) => t.id === selectedId) ?? pendingTasks[0];
+  // When URL changes (navigating from plan), update selected task
+  useEffect(() => {
+    if (urlTaskId) setSelectedId(urlTaskId);
+  }, [urlTaskId]);
+
+  const allActionable = state.tasks.filter((t) => !t.isRecovery);
+  const pendingTasks  = allActionable.filter((t) => t.status !== "completed");
+
+  // Find the selected task (may be completed if user taps it from plan for review)
+  const task: Task | undefined =
+    allActionable.find((t) => t.id === selectedId) ??
+    pendingTasks[0];
+
+  const isAlreadyCompleted = task?.status === "completed";
   const totalSecs  = (task?.minutes ?? 25) * 60;
   const remaining  = Math.max(0, totalSecs - elapsed);
   const progress   = totalSecs > 0 ? elapsed / totalSecs : 0;
@@ -88,6 +105,7 @@ export default function FocusPage() {
   }
 
   function pauseTimer() { stopTimer(); setPhase("paused"); }
+
   function resumeTimer() {
     setPhase("running");
     intervalRef.current = setInterval(() => {
@@ -101,20 +119,36 @@ export default function FocusPage() {
   function finishSession(completion: number) {
     stopTimer();
     if (!task) return;
+    // Guard: never award twice
+    if (task.status === "completed") {
+      setShowCompleted(true);
+      setPhase("idle");
+      setElapsed(0);
+      return;
+    }
     const reward = calcReward(task.difficulty, task.minutes, completion);
     const added  = Math.round(elapsed / 60);
-    patch((s) => ({
-      ...s,
-      gold: s.gold + reward.gold,
-      xp:   s.xp + reward.xp,
-      focusMinutes: s.focusMinutes + added,
-      streak: s.streak, // keep existing streak logic
-      tasks: s.tasks.map((t) =>
-        t.id === task.id
-          ? { ...t, status: completion >= 100 ? "completed" : "partial", completion, focusMinutes: t.focusMinutes + added }
-          : t
-      ),
-    }));
+    const today  = new Date().toISOString().slice(0, 10);
+    patch((s) => {
+      const last = s.lastActiveDate;
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yStr = yesterday.toISOString().slice(0, 10);
+      const newStreak = last === today ? s.streak : last === yStr ? s.streak + 1 : 1;
+      return {
+        ...s,
+        gold: s.gold + reward.gold,
+        xp:   s.xp + reward.xp,
+        focusMinutes: s.focusMinutes + added,
+        streak: newStreak,
+        lastActiveDate: today,
+        tasks: s.tasks.map((t) =>
+          t.id === task.id
+            ? { ...t, status: completion >= 100 ? "completed" : "partial", completion, focusMinutes: t.focusMinutes + added }
+            : t
+        ),
+      };
+    });
     setShowCompleted(true);
     setPhase("idle");
     setElapsed(0);
@@ -142,7 +176,6 @@ export default function FocusPage() {
       <FVShell>
         <Confetti />
         <div style={{ padding: "40px 20px", textAlign: "center" }}>
-          {/* Mascot celebrate */}
           <div style={{ animation: "mascot-bounce 0.8s ease 0.3s both" }}>
             <Mascot size={110} mood="celebrate" />
           </div>
@@ -155,15 +188,17 @@ export default function FocusPage() {
           </p>
 
           <div className="fv-card" style={{ textAlign: "left", marginBottom: 16 }}>
-            <p style={{ margin: "0 0 12px", fontWeight: 800, color: "#1D2B53", fontSize: "0.95rem" }}>
-              {task.title}
-            </p>
+            <div className="row gap-8" style={{ marginBottom: 4 }}>
+              <CheckCircle2 size={16} color="#059669" />
+              <p style={{ margin: 0, fontWeight: 800, color: "#1D2B53", fontSize: "0.95rem" }}>
+                {task.title}
+              </p>
+            </div>
             <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.8rem" }}>
               Focus to build your future city ✨
             </p>
           </div>
 
-          {/* Rewards */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
             <div className="fv-card" style={{ textAlign: "center" }}>
               <div style={{ fontSize: "1.4rem" }}>🪙</div>
@@ -184,12 +219,61 @@ export default function FocusPage() {
             </div>
           </div>
 
+          <div style={{ display: "grid", gap: 10 }}>
+            <button
+              className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg"
+              onClick={resetSession}
+            >
+              Awesome! Start Next Task
+            </button>
+            <button
+              className="fv-btn fv-btn-ghost fv-btn-full"
+              onClick={() => router.push("/plan")}
+            >
+              <ChevronLeft size={16} /> Back to Plan
+            </button>
+          </div>
+        </div>
+      </FVShell>
+    );
+  }
+
+  /* ── Already completed — review mode ── */
+  if (isAlreadyCompleted && task) {
+    return (
+      <FVShell>
+        <div style={{ padding: "20px 20px" }}>
           <button
-            className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg"
-            onClick={resetSession}
+            onClick={() => router.push("/plan")}
+            className="fv-btn fv-btn-ghost fv-btn-sm"
+            style={{ marginBottom: 16, gap: 4 }}
           >
-            Awesome!
+            <ChevronLeft size={16} /> Back to Plan
           </button>
+          <div className="fv-card" style={{ textAlign: "center", padding: "32px 20px" }}>
+            <div style={{ fontSize: "3rem", marginBottom: 12 }}>✅</div>
+            <h2 style={{ margin: "0 0 8px", fontWeight: 900, color: "#1D2B53" }}>Already completed!</h2>
+            <p style={{ margin: "0 0 16px", color: "#6B7A99", fontSize: "0.88rem" }}>{task.title}</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+              <div style={{ background: "#FFF8E7", borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.9rem", fontWeight: 900, color: "#C17D00" }}>🪙 +{task.gold}</div>
+                <div style={{ fontSize: "0.68rem", color: "#6B7A99", fontWeight: 600, marginTop: 2 }}>Gold earned</div>
+              </div>
+              <div style={{ background: "#EEF2FF", borderRadius: 12, padding: "10px 14px", textAlign: "center" }}>
+                <div style={{ fontSize: "0.9rem", fontWeight: 900, color: "#6366F1" }}>💎 +{task.xp}</div>
+                <div style={{ fontSize: "0.68rem", color: "#6B7A99", fontWeight: 600, marginTop: 2 }}>XP earned</div>
+              </div>
+            </div>
+            <button
+              className="fv-btn fv-btn-primary fv-btn-full"
+              onClick={() => {
+                setSelectedId(pendingTasks[0]?.id ?? "");
+                setShowCompleted(false);
+              }}
+            >
+              Focus on next task
+            </button>
+          </div>
         </div>
       </FVShell>
     );
@@ -202,7 +286,13 @@ export default function FocusPage() {
         <div style={{ padding: "60px 20px", textAlign: "center" }}>
           <Mascot size={90} mood="celebrate" float />
           <h2 style={{ margin: "16px 0 8px", fontWeight: 900, color: "#1D2B53" }}>All done! 🏆</h2>
-          <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.88rem" }}>Rest up, you've earned it 🌙</p>
+          <p style={{ margin: "0 0 20px", color: "#6B7A99", fontSize: "0.88rem" }}>Rest up, you've earned it 🌙</p>
+          <button
+            className="fv-btn fv-btn-ghost fv-btn-full"
+            onClick={() => router.push("/plan")}
+          >
+            <ChevronLeft size={16} /> Back to Plan
+          </button>
         </div>
       </FVShell>
     );
@@ -214,6 +304,15 @@ export default function FocusPage() {
   return (
     <FVShell>
       <div style={{ padding: "20px 20px" }}>
+
+        {/* Back to Plan */}
+        <button
+          onClick={() => router.push("/plan")}
+          className="fv-btn fv-btn-ghost fv-btn-sm"
+          style={{ marginBottom: 8, gap: 4 }}
+        >
+          <ChevronLeft size={16} /> Plan
+        </button>
 
         {/* Session label */}
         <div style={{ textAlign: "center", marginBottom: 8 }}>
@@ -235,9 +334,9 @@ export default function FocusPage() {
         {task && (
           <div style={{ textAlign: "center", marginBottom: 4 }}>
             <button
-              onClick={() => setShowSelector(!showSelector)}
+              onClick={() => phase === "idle" && setShowSelector(!showSelector)}
               className="row gap-6 center"
-              style={{ background: "none", border: "none", cursor: "pointer", margin: "0 auto" }}
+              style={{ background: "none", border: "none", cursor: phase === "idle" ? "pointer" : "default", margin: "0 auto" }}
             >
               <span style={{ fontSize: "1.05rem", fontWeight: 800, color: "#1D2B53" }}>{task.title}</span>
               {phase === "idle" && <ChevronDown size={16} color="#6B7A99" />}
@@ -245,7 +344,7 @@ export default function FocusPage() {
           </div>
         )}
 
-        {/* Task selector */}
+        {/* Task selector dropdown */}
         {showSelector && phase === "idle" && (
           <div className="fv-card" style={{ marginBottom: 12, marginTop: 8 }}>
             <div className="stack gap-6">
@@ -254,7 +353,7 @@ export default function FocusPage() {
                   key={t.id}
                   onClick={() => { setSelectedId(t.id); setShowSelector(false); }}
                   style={{
-                    background: t.id === (task?.id) ? "#EBF5FF" : "transparent",
+                    background: t.id === task?.id ? "#EBF5FF" : "transparent",
                     border: "none",
                     borderRadius: 10,
                     padding: "8px 12px",
@@ -279,9 +378,7 @@ export default function FocusPage() {
               height={240}
               style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}
             >
-              {/* Track */}
               <circle cx={120} cy={120} r={RADIUS} fill="none" stroke="#EBF5FF" strokeWidth={14} />
-              {/* Progress */}
               <circle
                 cx={120} cy={120} r={RADIUS}
                 fill="none"
@@ -294,7 +391,6 @@ export default function FocusPage() {
               />
             </svg>
 
-            {/* Time display */}
             <div style={{
               position: "absolute",
               inset: 0,
@@ -315,8 +411,6 @@ export default function FocusPage() {
               <div style={{ marginTop: 6, fontSize: "0.7rem", fontWeight: 700, color: "#6B7A99", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 {phase === "idle" ? "ready" : phase === "running" ? "focus" : phase === "paused" ? "paused" : "done!"}
               </div>
-
-              {/* Mascot inside ring */}
               <div style={{ marginTop: 8, opacity: phase === "running" ? 1 : 0.5, transition: "opacity 300ms" }}>
                 <Mascot size={36} mood={phase === "running" ? "happy" : phase === "done" ? "celebrate" : "idle"} />
               </div>
@@ -354,7 +448,7 @@ export default function FocusPage() {
                 Pause
               </button>
               <button className="fv-btn fv-btn-primary fv-btn-full" style={{ height: 52 }} onClick={() => finishSession(100)}>
-                ✓ Finish
+                ✓ Complete Task
               </button>
             </div>
           )}
@@ -379,6 +473,17 @@ export default function FocusPage() {
               🎉 Claim Rewards!
             </button>
           )}
+
+          {/* Manual complete fallback always visible in idle */}
+          {phase === "idle" && task && (
+            <button
+              className="fv-btn fv-btn-secondary fv-btn-full"
+              onClick={() => finishSession(100)}
+              style={{ height: 44 }}
+            >
+              <CheckCircle2 size={16} /> Mark as Complete
+            </button>
+          )}
         </div>
 
         {/* Elapsed */}
@@ -389,5 +494,17 @@ export default function FocusPage() {
         )}
       </div>
     </FVShell>
+  );
+}
+
+export default function FocusPage() {
+  return (
+    <Suspense fallback={
+      <FVShell>
+        <div className="fv-loading"><Mascot size={60} mood="idle" float /></div>
+      </FVShell>
+    }>
+      <FocusPageInner />
+    </Suspense>
   );
 }

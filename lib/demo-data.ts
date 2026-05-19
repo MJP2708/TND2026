@@ -98,6 +98,8 @@ export function createDemoState(): AppState {
         goldAwarded: 25,
       },
     ],
+    purchasedItems: [],
+    lastMoodDate: "",
     hasOnboarded: true,
     lastActiveDate: new Date().toISOString().slice(0, 10),
     themeMode: "light",

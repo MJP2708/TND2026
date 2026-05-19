@@ -81,6 +81,8 @@ export type AppState = {
   rewards: Reward[];
   vouchers: Voucher[];
   moods: MoodEntry[];
+  purchasedItems: string[];
+  lastMoodDate: string;
   hasOnboarded: boolean;
   lastActiveDate: string;
   themeMode: ThemeMode;

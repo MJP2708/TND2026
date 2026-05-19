@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
-import { Heart, AlertCircle, Sparkles } from "lucide-react";
+import { Heart, Sparkles } from "lucide-react";
+import { generatePlan } from "@/lib/ai-planner";
 
 type MoodState = "checkin" | "burnout" | "done";
 
@@ -37,33 +39,74 @@ const AI_SUGGESTIONS = {
 
 export default function MoodPage() {
   const { state, patch } = useStore();
+  const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
   const [screen, setScreen]     = useState<MoodState>("checkin");
-  const [rewarded, setRewarded] = useState(false);
 
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const alreadyCheckedIn = state.lastMoodDate === todayKey;
   const isBurnout = selected ? BURNOUT_SIGNS.includes(selected) : false;
 
   function handleContinue() {
-    if (!selected) return;
+    if (!selected || alreadyCheckedIn) return;
     const goldReward = 50;
-    if (!rewarded) {
-      patch((s) => ({
-        ...s,
-        gold: s.gold + goldReward,
-        moods: [
-          {
-            id: `m-${Date.now()}`,
-            date: new Date().toISOString(),
-            tone: isBurnout ? "overloaded" : "steady",
-            answers: [selected],
-            goldAwarded: goldReward,
-          },
-          ...s.moods,
-        ],
-      }));
-      setRewarded(true);
-    }
+    patch((s) => ({
+      ...s,
+      gold: s.gold + goldReward,
+      lastMoodDate: todayKey,
+      moods: [
+        {
+          id: `m-${Date.now()}`,
+          date: new Date().toISOString(),
+          tone: isBurnout ? "overloaded" : selected === "Great" || selected === "Good" ? "rested" : selected === "Tired" ? "tired" : "steady",
+          answers: [selected],
+          goldAwarded: goldReward,
+        },
+        ...s.moods,
+      ],
+    }));
     setScreen(isBurnout ? "burnout" : "done");
+  }
+
+  function handleSeePlan() {
+    if (!state.goal) { router.push("/plan"); return; }
+    // Lighten the plan: regenerate with "low" energy
+    const lighterGoal = { ...state.goal, energy: "low" as const };
+    const newTasks = generatePlan(lighterGoal);
+    patch((s) => ({ ...s, tasks: newTasks }));
+    router.push("/plan");
+  }
+
+  /* ── Already checked in today ── */
+  if (alreadyCheckedIn && screen === "checkin") {
+    const latestMood = state.moods[0];
+    return (
+      <FVShell>
+        <div style={{ padding: "40px 20px", textAlign: "center" }}>
+          <Mascot size={90} mood="happy" float />
+          <h2 style={{ margin: "16px 0 8px", fontWeight: 900, color: "#1D2B53", fontSize: "1.4rem" }}>
+            Already checked in today! 💚
+          </h2>
+          <p style={{ margin: "0 0 20px", color: "#6B7A99", fontSize: "0.88rem" }}>
+            Come back tomorrow for your next reward.
+          </p>
+          {latestMood && (
+            <div className="fv-card" style={{ marginBottom: 20, textAlign: "left" }}>
+              <p style={{ margin: "0 0 6px", fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>Today&apos;s mood</p>
+              <p style={{ margin: 0, fontSize: "0.9rem", color: "#6B7A99" }}>
+                {latestMood.answers[0]} · 🪙 +{latestMood.goldAwarded} earned
+              </p>
+            </div>
+          )}
+          <button
+            className="fv-btn fv-btn-primary fv-btn-full"
+            onClick={() => router.push("/plan")}
+          >
+            View My Plan
+          </button>
+        </div>
+      </FVShell>
+    );
   }
 
   /* ── Done screen ── */
@@ -100,9 +143,9 @@ export default function MoodPage() {
           </div>
           <button
             className="fv-btn fv-btn-primary fv-btn-full"
-            onClick={() => { setScreen("checkin"); setSelected(null); setRewarded(false); }}
+            onClick={() => router.push("/plan")}
           >
-            Check in again tomorrow
+            View My Plan
           </button>
         </div>
       </FVShell>
@@ -152,7 +195,6 @@ export default function MoodPage() {
             ))}
           </div>
 
-          {/* Reward badge */}
           <div style={{ textAlign: "center", marginBottom: 16 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#FFF8E7", border: "1px solid #FFE08A", borderRadius: 999, padding: "8px 16px" }}>
               <span>🪙</span>
@@ -162,14 +204,17 @@ export default function MoodPage() {
           </div>
 
           <div className="stack gap-10 animate-fade-up delay-2">
-            <button className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg">
+            <button
+              className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg"
+              onClick={handleSeePlan}
+            >
               ✨ See New Plan
             </button>
             <button
               className="fv-btn fv-btn-ghost fv-btn-full"
-              onClick={() => { setScreen("checkin"); setSelected(null); setRewarded(false); }}
+              onClick={() => router.push("/plan")}
             >
-              Not now
+              View current plan
             </button>
           </div>
         </div>
@@ -191,7 +236,6 @@ export default function MoodPage() {
           </p>
         </div>
 
-        {/* Mood grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 20 }} className="animate-fade-up delay-1">
           {MOODS.map((mood, idx) => (
             <button
@@ -212,26 +256,23 @@ export default function MoodPage() {
           ))}
         </div>
 
-        {/* Reward teaser */}
-        {!rewarded && (
-          <div style={{
-            textAlign: "center",
-            marginBottom: 16,
-            background: "#FFF8E7",
-            border: "1px solid #FFE08A",
-            borderRadius: 14,
-            padding: "8px 16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            fontSize: "0.82rem",
-            fontWeight: 700,
-            color: "#C17D00",
-          }} className="animate-fade-up delay-2">
-            <span>🪙</span> +50 Gold check-in reward
-          </div>
-        )}
+        <div style={{
+          textAlign: "center",
+          marginBottom: 16,
+          background: "#FFF8E7",
+          border: "1px solid #FFE08A",
+          borderRadius: 14,
+          padding: "8px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          fontSize: "0.82rem",
+          fontWeight: 700,
+          color: "#C17D00",
+        }} className="animate-fade-up delay-2">
+          <span>🪙</span> +50 Gold check-in reward
+        </div>
 
         <button
           className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg animate-fade-up delay-3"

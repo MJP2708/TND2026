@@ -7,7 +7,8 @@ import { Mascot } from "@/components/focusville/Mascot";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
-import { Trophy, Flame, Clock, Star, TrendingUp, ChevronRight } from "lucide-react";
+import { TrendingUp, ChevronRight } from "lucide-react";
+import type { Task } from "@/lib/types";
 
 type ProgressTab = "Focus" | "Mood" | "City" | "Achievements";
 
@@ -18,13 +19,21 @@ const ACHIEVEMENTS = [
   { id: "a4", icon: "🌟", label: "Plan Complete", color: "#6B7A99", border: "#D6E9FF", unlocked: false },
 ];
 
-function buildWeekData(focusMinutes: number) {
+function buildWeekData(tasks: Task[]) {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const base  = Math.round(focusMinutes / 7);
-  return days.map((day, i) => ({
-    day,
-    hours: parseFloat(Math.max(0, (base * (0.5 + Math.random()))).toFixed(1)),
-  }));
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+  return days.map((day, i) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    const dateStr = date.toISOString().slice(0, 10);
+    const mins = tasks
+      .filter((t) => t.day === dateStr)
+      .reduce((sum, t) => sum + (t.focusMinutes ?? 0), 0);
+    return { day, hours: parseFloat((mins / 60).toFixed(1)) };
+  });
 }
 
 const CustomTooltip = ({ active, payload, label }: {
@@ -67,13 +76,21 @@ export default function ProgressPage() {
   const focusHrs    = (state.focusMinutes / 60).toFixed(1);
   const totalTasks  = state.tasks.filter((t) => !t.isRecovery).length;
   const doneTasks   = state.tasks.filter((t) => t.status === "completed").length;
-  const weekData    = buildWeekData(state.focusMinutes);
+  const weekData    = buildWeekData(state.tasks);
   const maxHours    = Math.max(...weekData.map((d) => d.hours));
 
-  /* This week vs last week (mocked) */
-  const thisWeekMins = Math.round(state.focusMinutes * 0.4);
-  const lastWeekMins = Math.round(state.focusMinutes * 0.32);
-  const weekChange   = lastWeekMins > 0 ? Math.round(((thisWeekMins - lastWeekMins) / lastWeekMins) * 100) : 0;
+  const thisWeekMins = weekData.reduce((s, d) => s + Math.round(d.hours * 60), 0);
+  const lastWeekStart = new Date();
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7 - (lastWeekStart.getDay() === 0 ? 6 : lastWeekStart.getDay() - 1));
+  const lastWeekMins = state.tasks
+    .filter((t) => {
+      const d = t.day;
+      const start = lastWeekStart.toISOString().slice(0, 10);
+      const end = new Date(lastWeekStart.getTime() + 6 * 86_400_000).toISOString().slice(0, 10);
+      return d >= start && d <= end;
+    })
+    .reduce((s, t) => s + (t.focusMinutes ?? 0), 0);
+  const weekChange = lastWeekMins > 0 ? Math.round(((thisWeekMins - lastWeekMins) / lastWeekMins) * 100) : 0;
 
   return (
     <FVShell>
