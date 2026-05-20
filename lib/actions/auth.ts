@@ -2,6 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
 const RegisterSchema = z.object({
@@ -38,5 +39,14 @@ export async function registerUser(formData: FormData) {
     },
   });
 
+  return { success: true };
+}
+
+export async function updateUserProfile(displayName: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: "Unauthorized" };
+  const name = displayName.trim().slice(0, 50);
+  if (name.length < 2) return { error: "Name must be at least 2 characters" };
+  await db.user.update({ where: { id: session.user.id }, data: { displayName: name } });
   return { success: true };
 }

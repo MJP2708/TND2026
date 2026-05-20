@@ -68,6 +68,9 @@ model User {
   uiTone         String    @default("sunrise")
   language       String    @default("en")
 
+  lastLoginDate  String?
+  loginStreak    Int       @default(0)
+
   accounts        Account[]
   sessions        Session[]
   goals           Goal[]
@@ -85,6 +88,8 @@ model User {
   notifications   Notification[]
   friendsSent     Friend[]  @relation("FriendRequester")
   friendsReceived Friend[]  @relation("FriendTarget")
+  companion       Companion?
+  userDailyQuests UserDailyQuest[]
 }
 
 // ── Goals & Tasks ─────────────────────────────────────────────────────────────
@@ -99,6 +104,7 @@ model Goal {
   difficulty Int      @default(3)
   category   String   @default("study")
   isActive   Boolean  @default(true)
+  status     String   @default("active")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -312,4 +318,36 @@ model Notification {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── Companion (Fovi) ──────────────────────────────────────────────────────────
+
+model Companion {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  friendship Int       @default(0)
+  lastFed    DateTime?
+  lastPetted DateTime?
+  lastActive DateTime?
+  skin       String    @default("default")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── Daily Quests ──────────────────────────────────────────────────────────────
+
+model UserDailyQuest {
+  id        String    @id @default(cuid())
+  userId    String
+  questKey  String
+  dateKey   String
+  progress  Int       @default(0)
+  completed Boolean   @default(false)
+  claimed   Boolean   @default(false)
+  claimedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questKey, dateKey])
 }

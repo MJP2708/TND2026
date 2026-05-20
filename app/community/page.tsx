@@ -19,18 +19,96 @@ type NeighborhoodTab = "feed" | "map" | "chat" | "search";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+// ── Day/Night helpers ─────────────────────────────────────────────────────────
+
+function getDayPhase() {
+  const h = new Date().getHours();
+  if (h >= 6  && h < 9)  return { label: "🌅 Dawn",     sky: "linear-gradient(180deg,#FFB347 0%,#FFD580 40%,#FFEEB5 100%)", ambient: "rgba(255,180,80,0.15)" };
+  if (h >= 9  && h < 17) return { label: "☀️ Day",      sky: "linear-gradient(180deg,#87CEEB 0%,#B8E4FF 45%,#D4F4C8 100%)", ambient: "rgba(255,255,255,0)"    };
+  if (h >= 17 && h < 20) return { label: "🌇 Dusk",     sky: "linear-gradient(180deg,#FF7043 0%,#FFA07A 40%,#FFD4B0 100%)", ambient: "rgba(255,100,50,0.2)"   };
+  return                        { label: "🌙 Night",     sky: "linear-gradient(180deg,#1A237E 0%,#283593 40%,#3949AB 100%)", ambient: "rgba(20,30,100,0.6)"    };
+}
+
+const NPC_MESSAGES = [
+  "You focused a lot today! 💪",
+  "The city is growing! 🏙",
+  "Keep up the streak! 🔥",
+  "Looking productive! ⚡",
+  "The library is buzzing! 📚",
+  "Great energy today! ✨",
+];
+
+function CityNPCs({ count }: { count: number }) {
+  const npcs = Array.from({ length: Math.min(count + 2, 6) }, (_, i) => ({
+    id: i,
+    x: 10 + (i * 16) % 80,
+    y: 55 + (i % 3) * 12,
+    color: ["#5EA9FF", "#7EDC8A", "#FFD45E", "#FF7B7B", "#A78BFA", "#FFAD5E"][i % 6],
+    delay: i * 0.8,
+    message: i === 0 ? NPC_MESSAGES[Math.floor(Date.now() / 60000) % NPC_MESSAGES.length] : null,
+  }));
+
+  return (
+    <>
+      {npcs.map((npc) => (
+        <div key={npc.id} style={{
+          position: "absolute",
+          left: `${npc.x}%`,
+          bottom: `${npc.y - 30}px`,
+          animation: `npc-walk 6s ${npc.delay}s ease-in-out infinite`,
+        }}>
+          {npc.message && (
+            <div style={{
+              position: "absolute",
+              bottom: "100%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "white",
+              border: "1px solid #D6E9FF",
+              borderRadius: 8,
+              padding: "3px 7px",
+              fontSize: "0.52rem",
+              fontWeight: 700,
+              color: "#1D2B53",
+              whiteSpace: "nowrap",
+              marginBottom: 4,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+              animation: "speech-pop 4s 1s ease forwards",
+            }}>
+              {npc.message}
+            </div>
+          )}
+          <div style={{
+            width: 14,
+            height: 14,
+            borderRadius: "50%",
+            background: npc.color,
+            border: "2px solid white",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+          }} />
+        </div>
+      ))}
+    </>
+  );
+}
+
 // ── City tab ──────────────────────────────────────────────────────────────────
 
 function CityTab() {
   const { state, patch } = useStore();
   const { data: cityData, mutate: mutateCity } = useSWR("/api/user/state", fetcher, { refreshInterval: 0 });
 
-  const buildings = cityData?.city?.buildings ?? [];
-  const gold = cityData?.user?.gold ?? state.gold;
+  const buildings  = cityData?.city?.buildings ?? [];
+  const placed     = buildings.filter((b: { x: number }) => b.x >= 0).length;
+  const gold       = cityData?.user?.gold ?? state.gold;
+  const dayPhase   = getDayPhase();
+
+  // City happiness: based on buildings placed (0-100)
+  const happiness  = Math.min(100, placed * 14);
+  const happyLabel = happiness >= 80 ? "🎉 Thriving!" : happiness >= 50 ? "😊 Happy" : happiness >= 20 ? "😐 Growing" : "🌱 New city";
 
   function handleCityUpdate() {
     mutateCity();
-    // Also refresh store gold
     fetch("/api/user/state").then((r) => r.json()).then((d) => {
       if (d.user) patch((s) => ({ ...s, gold: d.user.gold }));
     });
@@ -38,7 +116,7 @@ function CityTab() {
 
   return (
     <div>
-      {/* City name */}
+      {/* City header */}
       <div style={{
         padding: "12px 20px",
         borderBottom: "1px solid #D6E9FF",
@@ -49,14 +127,107 @@ function CityTab() {
         <div>
           <p style={{ margin: 0, fontWeight: 900, fontSize: "1rem", color: "#1D2B53" }}>
             {cityData?.city?.name ?? "My City"}
+            <span style={{ marginLeft: 6, fontSize: "0.72rem", fontWeight: 600, color: "#6B7A99" }}>{dayPhase.label}</span>
           </p>
           <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99" }}>
-            {buildings.filter((b: { x: number }) => b.x >= 0).length} buildings placed · {buildings.filter((b: { x: number }) => b.x < 0).length} in inventory
+            {placed} buildings · {happyLabel}
           </p>
         </div>
-        <div className="fv-gold">
-          <span>🪙</span>
-          <span>{gold.toLocaleString()}</span>
+        <div className="fv-gold"><span>🪙</span><span>{gold.toLocaleString()}</span></div>
+      </div>
+
+      {/* City happiness bar */}
+      <div style={{ padding: "8px 20px 0" }}>
+        <div className="row between" style={{ marginBottom: 3 }}>
+          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#6B7A99" }}>City Happiness</span>
+          <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "#1D2B53" }}>{happiness}%</span>
+        </div>
+        <div style={{ height: 5, background: "#EBF5FF", borderRadius: 999, overflow: "hidden", marginBottom: 8 }}>
+          <div style={{
+            height: "100%",
+            width: `${happiness}%`,
+            background: "linear-gradient(90deg, #7EDC8A, #5EA9FF)",
+            borderRadius: 999,
+            transition: "width 800ms ease",
+          }} />
+        </div>
+      </div>
+
+      {/* Living city preview */}
+      <div style={{ position: "relative", margin: "0 16px 0" }}>
+        <div style={{
+          background: dayPhase.sky,
+          borderRadius: 20,
+          height: 160,
+          position: "relative",
+          overflow: "hidden",
+          marginBottom: 0,
+        }}>
+          {/* Day/night ambient overlay */}
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            background: dayPhase.ambient,
+            borderRadius: 20,
+            zIndex: 2,
+            pointerEvents: "none",
+          }} />
+
+          {/* Stars at night */}
+          {dayPhase.label.includes("Night") && [
+            { x: 15, y: 12 }, { x: 35, y: 8 }, { x: 55, y: 15 }, { x: 75, y: 10 }, { x: 88, y: 18 },
+          ].map((s, i) => (
+            <div key={i} style={{
+              position: "absolute",
+              left: `${s.x}%`,
+              top: `${s.y}%`,
+              width: 3,
+              height: 3,
+              background: "white",
+              borderRadius: "50%",
+              opacity: 0.8,
+              animation: `twinkle ${1.5 + i * 0.3}s ease-in-out infinite`,
+              zIndex: 1,
+            }} />
+          ))}
+
+          {/* Ground */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 32, background: "#A8D98A", zIndex: 1 }} />
+
+          {/* Building silhouettes (scale with placed count) */}
+          {[
+            { l: "5%",  w: 44, h: 65,  c: "#8EC5FF" },
+            { l: "18%", w: 36, h: 50,  c: "#7EDC8A" },
+            { l: "30%", w: 56, h: 88,  c: "#5EA9FF" },
+            { l: "48%", w: 40, h: 60,  c: "#FFAD5E" },
+            { l: "62%", w: 50, h: 78,  c: "#A78BFA" },
+            { l: "76%", w: 34, h: 48,  c: "#FFD45E" },
+            { l: "87%", w: 44, h: 62,  c: "#FF7B7B" },
+          ].slice(0, Math.max(2, Math.min(7, placed + 2))).map((b, i) => (
+            <div key={i} style={{
+              position: "absolute",
+              bottom: 28,
+              left: b.l,
+              width: b.w,
+              height: b.h + (placed * 3),
+              background: dayPhase.label.includes("Night") ? `${b.c}99` : b.c,
+              borderRadius: "6px 6px 0 0",
+              opacity: 0.85,
+              zIndex: 1,
+            }}>
+              {/* Window lights at night */}
+              {dayPhase.label.includes("Night") && (
+                <div style={{ padding: "8px 6px", display: "flex", flexWrap: "wrap", gap: 3 }}>
+                  {Array.from({ length: 4 }).map((_, wi) => (
+                    <div key={wi} style={{ width: 4, height: 4, background: "#FFD45E", borderRadius: 1, opacity: Math.random() > 0.3 ? 0.9 : 0 }} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* NPCs */}
+          <CityNPCs count={placed} />
         </div>
       </div>
 

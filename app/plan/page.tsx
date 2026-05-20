@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { generatePlan } from "@/lib/ai-planner";
 import { savePlan, completeTask as completeTaskDB } from "@/lib/actions/tasks";
+import { archiveGoal, deleteGoal, pauseGoal } from "@/lib/actions/goals";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
+import { GoalCountdown } from "@/components/game/GoalCountdown";
 import { ChevronLeft, Calendar, Sparkles, Clock, CheckCircle2, Play } from "lucide-react";
 import type { Goal, GoalCategory, EnergyLevel, DifficultyLevel, Task } from "@/lib/types";
 
@@ -47,6 +49,33 @@ export default function PlanPage() {
   const [category, setCategory] = useState<GoalCategory>("study");
   const [generating, setGenerating] = useState(false);
   const [previewTasks, setPreviewTasks] = useState(state.tasks);
+  const [showGoalMenu, setShowGoalMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  async function handleArchiveGoal() {
+    if (!state.goal?.id) return;
+    setShowGoalMenu(false);
+    await archiveGoal(state.goal.id).catch(() => {});
+    patch((s) => ({ ...s, goal: null, tasks: [] }));
+    setStep("goal");
+  }
+
+  async function handleDeleteGoal() {
+    if (!state.goal?.id) return;
+    setConfirmDelete(false);
+    setShowGoalMenu(false);
+    await deleteGoal(state.goal.id).catch(() => {});
+    patch((s) => ({ ...s, goal: null, tasks: [] }));
+    setStep("goal");
+  }
+
+  async function handlePauseGoal() {
+    if (!state.goal?.id) return;
+    setShowGoalMenu(false);
+    await pauseGoal(state.goal.id).catch(() => {});
+    patch((s) => ({ ...s, goal: state.goal ? { ...state.goal, status: "paused" } : null }));
+  }
 
   function handleCompleteTask(task: Task) {
     if (task.status === "completed") return;
@@ -350,15 +379,8 @@ export default function PlanPage() {
     <FVShell>
       <div style={{ padding: "20px 20px 20px" }}>
         {/* Header */}
-        <div className="row between" style={{ marginBottom: 20 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900, color: "#1D2B53" }}>Your Plan</h1>
-            {state.goal && (
-              <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "#6B7A99" }}>
-                {state.goal.title}
-              </p>
-            )}
-          </div>
+        <div className="row between" style={{ marginBottom: 16 }}>
+          <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900, color: "#1D2B53" }}>Your Plan</h1>
           <button
             className="fv-btn fv-btn-secondary fv-btn-sm"
             onClick={() => setStep("goal")}
@@ -368,36 +390,106 @@ export default function PlanPage() {
           </button>
         </div>
 
-        {/* Progress card */}
+        {/* Goal countdown card with management menu */}
         {state.goal && (
-          <div className="fv-card fv-card-blue animate-fade-up" style={{ marginBottom: 16 }}>
-            <div className="row between" style={{ marginBottom: 8 }}>
-              <p style={{ margin: 0, fontSize: "0.72rem", fontWeight: 700, opacity: 0.85 }}>Goal Progress</p>
-              <span style={{ fontSize: "1.2rem", fontWeight: 900 }}>{progress}%</span>
-            </div>
-            <div style={{
-              height: 10,
-              background: "rgba(255,255,255,0.25)",
-              borderRadius: 999,
-              overflow: "hidden",
-              marginBottom: 8,
-            }}>
-              <div style={{
-                height: "100%",
-                width: `${progress}%`,
+          <div style={{ position: "relative" }}>
+            <GoalCountdown
+              goal={state.goal}
+              progress={progress}
+              onMenu={() => { setShowGoalMenu((v) => !v); setConfirmDelete(false); }}
+            />
+
+            {/* Goal management dropdown */}
+            {showGoalMenu && (
+              <div ref={menuRef} style={{
+                position: "absolute",
+                top: 44,
+                right: 0,
+                zIndex: 100,
                 background: "white",
-                borderRadius: 999,
-                transition: "width 600ms ease",
-              }} />
-            </div>
-            <div className="row between">
-              <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.85 }}>
-                {doneTasks} / {totalTasks} tasks · {totalHours}h focus
-              </p>
-              <p style={{ margin: 0, fontSize: "0.75rem", opacity: 0.85 }}>
-                📅 {new Date(state.goal.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              </p>
-            </div>
+                border: "1px solid #D6E9FF",
+                borderRadius: 14,
+                boxShadow: "0 8px 32px rgba(94,169,255,0.18)",
+                overflow: "hidden",
+                minWidth: 180,
+              }}>
+                {[
+                  { label: "⏸ Pause goal",   action: handlePauseGoal,  color: "#1D2B53" },
+                  { label: "🗂 Archive goal", action: handleArchiveGoal, color: "#1D2B53" },
+                ].map(({ label, action, color }) => (
+                  <button
+                    key={label}
+                    onClick={action}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      padding: "12px 16px",
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      borderBottom: "1px solid #F0F5FF",
+                      cursor: "pointer",
+                      fontSize: "0.82rem",
+                      fontWeight: 700,
+                      color,
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+                {!confirmDelete ? (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      padding: "12px 16px",
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "0.82rem",
+                      fontWeight: 700,
+                      color: "#D94040",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    🗑 Delete goal
+                  </button>
+                ) : (
+                  <div style={{ padding: "10px 14px", background: "#FFF5F5" }}>
+                    <p style={{ margin: "0 0 8px", fontSize: "0.75rem", fontWeight: 700, color: "#D94040" }}>
+                      Delete goal + all tasks?
+                    </p>
+                    <div className="row gap-8">
+                      <button
+                        onClick={handleDeleteGoal}
+                        className="fv-btn fv-btn-sm"
+                        style={{ background: "#D94040", color: "white", border: "none", flex: 1, height: 28 }}
+                      >
+                        Yes, delete
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        className="fv-btn fv-btn-ghost fv-btn-sm"
+                        style={{ flex: 1, height: 28 }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Click-away overlay */}
+            {showGoalMenu && (
+              <div
+                style={{ position: "fixed", inset: 0, zIndex: 99 }}
+                onClick={() => { setShowGoalMenu(false); setConfirmDelete(false); }}
+              />
+            )}
           </div>
         )}
 

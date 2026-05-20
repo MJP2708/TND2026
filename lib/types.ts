@@ -16,6 +16,7 @@ export type Goal = {
   difficulty: DifficultyLevel;
   category: GoalCategory;
   createdAt: string;
+  status?: "active" | "paused" | "archived" | "completed" | "failed";
 };
 
 export type Task = {

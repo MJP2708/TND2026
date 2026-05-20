@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
+import { updateQuestProgress } from "./quests";
+import { boostCompanionFromActivity } from "./companion";
 
 async function requireAuth() {
   const session = await auth();
@@ -121,14 +123,18 @@ export async function completeTask(taskId: string) {
   });
 
   await checkAchievements(userId);
+
+  // Quest progress + companion (non-critical, fire-and-forget style)
+  try {
+    await updateQuestProgress("complete_1_task", 1, userId);
+    await updateQuestProgress("complete_3_tasks", 1, userId);
+    await boostCompanionFromActivity(userId, "task");
+  } catch { /* non-critical */ }
+
   revalidatePath("/plan");
   revalidatePath("/dashboard");
 
-  return {
-    gold: task.gold,
-    xp: task.xp,
-    streak: newStreak,
-  };
+  return { gold: task.gold, xp: task.xp, streak: newStreak };
 }
 
 // Load user's active goal + tasks

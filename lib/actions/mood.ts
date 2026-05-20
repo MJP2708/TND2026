@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
+import { updateQuestProgress } from "./quests";
+import { boostCompanionFromActivity } from "./companion";
 
 async function requireAuth() {
   const session = await auth();
@@ -52,6 +54,12 @@ export async function saveMoodCheckIn(mood: string, isBurnout: boolean) {
   });
 
   await checkAchievements(userId);
+
+  try {
+    await updateQuestProgress("mood_checkin", 1, userId);
+    await boostCompanionFromActivity(userId, "mood");
+  } catch { /* non-critical */ }
+
   revalidatePath("/mood");
   revalidatePath("/progress");
 

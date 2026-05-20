@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
+import { updateQuestProgress } from "./quests";
+import { boostCompanionFromActivity } from "./companion";
 
 async function requireAuth() {
   const session = await auth();
@@ -90,6 +92,13 @@ export async function saveFocusSession(input: {
   });
 
   await checkAchievements(userId);
+
+  try {
+    await updateQuestProgress("focus_25min", minutes, userId);
+    await updateQuestProgress("focus_60min", minutes, userId);
+    await boostCompanionFromActivity(userId, "focus");
+  } catch { /* non-critical */ }
+
   revalidatePath("/focus");
   revalidatePath("/progress");
 

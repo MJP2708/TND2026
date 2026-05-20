@@ -7,6 +7,9 @@ import { Mascot } from "@/components/focusville/Mascot";
 import { CurrencyDisplay } from "@/components/focusville/CurrencyDisplay";
 import { Bell, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import { completeTask as completeTaskDB } from "@/lib/actions/tasks";
+import { QuestPanel } from "@/components/game/QuestPanel";
+import { CompanionCard } from "@/components/game/CompanionCard";
+import { LoginRewardModal } from "@/components/game/LoginRewardModal";
 
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 
@@ -84,6 +87,7 @@ export default function DashboardPage() {
 
   return (
     <FVShell>
+      <LoginRewardModal />
       <div style={{ padding: "0 0 20px" }}>
 
         {/* ── Top bar ── */}
@@ -240,6 +244,12 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          {/* ── Companion ── */}
+          <CompanionCard />
+
+          {/* ── Daily Quests ── */}
+          <QuestPanel />
 
           {/* ── Stats row ── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }} className="animate-fade-up delay-2">

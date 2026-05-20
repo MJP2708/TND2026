@@ -1,5 +1,6 @@
 "use server";
 
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
 const ACHIEVEMENT_DEFS = [
@@ -99,4 +100,10 @@ export async function getUserAchievements(userId: string) {
     unlocked: unlockedKeys.has(def.key),
     unlockedAt: unlocked.find((u) => u.achievement.key === def.key)?.unlockedAt,
   }));
+}
+
+export async function getMyAchievements() {
+  const session = await auth();
+  if (!session?.user?.id) return ACHIEVEMENT_DEFS.map((def) => ({ ...def, unlocked: false, unlockedAt: undefined }));
+  return getUserAchievements(session.user.id);
 }

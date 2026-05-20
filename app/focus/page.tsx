@@ -68,6 +68,36 @@ function FocusPageInner() {
   const [showCompleted, setShowCompleted] = useState(false);
   const [showSelector, setShowSelector]   = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const TIMER_KEY = "tf:focus:timer";
+
+  // Restore timer from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TIMER_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { taskId: string; elapsed: number; phase: Phase; savedAt: number };
+      const ageMs = Date.now() - saved.savedAt;
+      if (ageMs > 24 * 60 * 60 * 1000) { localStorage.removeItem(TIMER_KEY); return; }
+      if (saved.phase === "running" || saved.phase === "paused") {
+        const additionalSecs = saved.phase === "running" ? Math.floor(ageMs / 1000) : 0;
+        const restoredElapsed = saved.elapsed + additionalSecs;
+        setSelectedId(saved.taskId || urlTaskId);
+        setElapsed(restoredElapsed);
+        // Always restore as paused so user confirms resuming — prevents silent background timer
+        setPhase("paused");
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist timer state to localStorage on every change
+  useEffect(() => {
+    if (phase === "idle" || phase === "done") {
+      localStorage.removeItem(TIMER_KEY);
+    } else {
+      localStorage.setItem(TIMER_KEY, JSON.stringify({ taskId: selectedId, elapsed, phase, savedAt: Date.now() }));
+    }
+  }, [phase, elapsed, selectedId]);
 
   // When URL changes (navigating from plan), update selected task
   useEffect(() => {
@@ -162,6 +192,7 @@ function FocusPageInner() {
     setShowCompleted(true);
     setPhase("idle");
     setElapsed(0);
+    localStorage.removeItem(TIMER_KEY);
   }
 
   function resetSession() {
@@ -169,6 +200,7 @@ function FocusPageInner() {
     setPhase("idle");
     setElapsed(0);
     setShowCompleted(false);
+    localStorage.removeItem(TIMER_KEY);
   }
 
   if (!ready) {

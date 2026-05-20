@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
@@ -9,15 +9,20 @@ import {
 } from "recharts";
 import { TrendingUp, ChevronRight } from "lucide-react";
 import type { Task } from "@/lib/types";
+import { getMyAchievements } from "@/lib/actions/achievements";
 
 type ProgressTab = "Focus" | "Mood" | "City" | "Achievements";
 
-const ACHIEVEMENTS = [
-  { id: "a1", icon: "⭐", label: "First Step",    color: "#FFD45E", border: "#FFD45E", unlocked: true  },
-  { id: "a2", icon: "🔥", label: "7 Day Streak",  color: "#FF7B7B", border: "#FF7B7B", unlocked: true  },
-  { id: "a3", icon: "🏆", label: "Focus Master",  color: "#5EA9FF", border: "#5EA9FF", unlocked: false },
-  { id: "a4", icon: "🌟", label: "Plan Complete", color: "#6B7A99", border: "#D6E9FF", unlocked: false },
-];
+type AchievementData = {
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  goldReward: number;
+  xpReward: number;
+  unlocked: boolean;
+  unlockedAt?: Date;
+};
 
 function buildWeekData(tasks: Task[]) {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -62,6 +67,11 @@ const CustomTooltip = ({ active, payload, label }: {
 export default function ProgressPage() {
   const { state, ready } = useStore();
   const [tab, setTab] = useState<ProgressTab>("Focus");
+  const [achievements, setAchievements] = useState<AchievementData[]>([]);
+
+  useEffect(() => {
+    getMyAchievements().then(setAchievements).catch(() => {});
+  }, []);
 
   if (!ready) {
     return (
@@ -212,20 +222,24 @@ export default function ProgressPage() {
                   </button>
                 </div>
                 <div className="row gap-12">
-                  {ACHIEVEMENTS.map((a) => (
+                  {achievements.slice(0, 6).map((a) => (
                     <div
-                      key={a.id}
+                      key={a.key}
                       className="fv-achievement"
                       style={{
-                        borderColor: a.border,
-                        background: a.unlocked ? `${a.color}22` : "#F5FAFF",
+                        borderColor: a.unlocked ? "#5EA9FF" : "#D6E9FF",
+                        background: a.unlocked ? "#EBF5FF" : "#F5FAFF",
                         opacity: a.unlocked ? 1 : 0.45,
                         filter: a.unlocked ? "none" : "grayscale(0.8)",
                       }}
+                      title={a.name}
                     >
                       {a.icon}
                     </div>
                   ))}
+                  {achievements.length === 0 && (
+                    <p style={{ margin: 0, fontSize: "0.78rem", color: "#6B7A99" }}>Loading…</p>
+                  )}
                 </div>
               </div>
             </>
@@ -382,13 +396,16 @@ export default function ProgressPage() {
                     All Achievements
                   </p>
                   <span className="fv-badge fv-badge-blue">
-                    {ACHIEVEMENTS.filter((a) => a.unlocked).length}/{ACHIEVEMENTS.length}
+                    {achievements.filter((a) => a.unlocked).length}/{achievements.length}
                   </span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-                  {ACHIEVEMENTS.map((a, i) => (
+                {achievements.length === 0 ? (
+                  <p style={{ margin: 0, fontSize: "0.82rem", color: "#6B7A99", textAlign: "center", padding: "12px 0" }}>Loading…</p>
+                ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+                  {achievements.map((a, i) => (
                     <div
-                      key={a.id}
+                      key={a.key}
                       className="animate-fade-up"
                       style={{
                         animationDelay: `${i * 60}ms`,
@@ -401,8 +418,8 @@ export default function ProgressPage() {
                       <div
                         className="fv-achievement"
                         style={{
-                          borderColor: a.border,
-                          background: a.unlocked ? `${a.color}22` : "#F5FAFF",
+                          borderColor: a.unlocked ? "#5EA9FF" : "#D6E9FF",
+                          background: a.unlocked ? "#EBF5FF" : "#F5FAFF",
                           opacity: a.unlocked ? 1 : 0.4,
                           filter: a.unlocked ? "none" : "grayscale(0.9)",
                         }}
@@ -410,11 +427,17 @@ export default function ProgressPage() {
                         {a.icon}
                       </div>
                       <p style={{ margin: 0, fontSize: "0.6rem", fontWeight: 700, color: a.unlocked ? "#1D2B53" : "#6B7A99", textAlign: "center" }}>
-                        {a.label}
+                        {a.name}
                       </p>
+                      {a.unlocked && a.unlockedAt && (
+                        <p style={{ margin: 0, fontSize: "0.55rem", color: "#5EA9FF", fontWeight: 600 }}>
+                          {new Date(a.unlockedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
+                )}
               </div>
 
               {/* Level progress */}

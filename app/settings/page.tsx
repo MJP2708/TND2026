@@ -7,6 +7,7 @@ import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
 import { signOut } from "next-auth/react";
 import { User, LogOut, ChevronRight, RotateCcw } from "lucide-react";
+import { updateUserProfile } from "@/lib/actions/auth";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -27,9 +28,11 @@ export default function SettingsPage() {
 
   function saveName() {
     if (!name.trim()) return;
-    patch((s) => ({ ...s, displayName: name.trim() }));
+    const trimmed = name.trim();
+    patch((s) => ({ ...s, displayName: trimmed }));
     setNameEditing(false);
     setName("");
+    updateUserProfile(trimmed).catch(() => {});
   }
 
   function handleLogout() { signOut({ callbackUrl: "/login" }); }
