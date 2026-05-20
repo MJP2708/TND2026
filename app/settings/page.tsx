@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
-import { logout } from "@/lib/auth";
-import { User, Shield, Bell, LogOut, ChevronRight, RotateCcw } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { User, LogOut, ChevronRight, RotateCcw } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function SettingsPage() {
     setName("");
   }
 
-  function handleLogout() { logout(); router.replace("/login"); }
+  function handleLogout() { signOut({ callbackUrl: "/login" }); }
   function handleReset()  { resetDemo(); setConfirmReset(false); }
 
   const MENU_SECTIONS = [
@@ -172,7 +172,7 @@ export default function SettingsPage() {
             <p className="fv-label" style={{ margin: "0 0 8px", paddingLeft: 4 }}>Data</p>
             <div className="fv-card">
               <p style={{ margin: "0 0 12px", fontSize: "0.82rem", color: "#6B7A99", lineHeight: 1.6 }}>
-                All data is stored locally in your browser. No account required, nothing sent to any server.
+                Resetting will clear your local progress cache. Your account data in the database is kept safe.
               </p>
               {!confirmReset ? (
                 <button

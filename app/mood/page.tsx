@@ -7,6 +7,7 @@ import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
 import { Heart, Sparkles } from "lucide-react";
 import { generatePlan } from "@/lib/ai-planner";
+import { saveMoodCheckIn } from "@/lib/actions/mood";
 
 type MoodState = "checkin" | "burnout" | "done";
 
@@ -50,6 +51,7 @@ export default function MoodPage() {
   function handleContinue() {
     if (!selected || alreadyCheckedIn) return;
     const goldReward = 50;
+    // Optimistic update
     patch((s) => ({
       ...s,
       gold: s.gold + goldReward,
@@ -65,6 +67,8 @@ export default function MoodPage() {
         ...s.moods,
       ],
     }));
+    // Persist to DB (best-effort)
+    saveMoodCheckIn(selected, isBurnout).catch(() => {});
     setScreen(isBurnout ? "burnout" : "done");
   }
 
