@@ -1,15 +1,5 @@
 {
   "buildCommand": "prisma generate && next build",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "env": {
-    "NEXTAUTH_URL": "@nextauth_url",
-    "AUTH_SECRET": "@auth_secret",
-    "NEXTAUTH_SECRET": "@auth_secret",
-    "DATABASE_URL": "@database_url",
-    "DIRECT_URL": "@direct_url",
-    "GOOGLE_CLIENT_ID": "@google_client_id",
-    "GOOGLE_CLIENT_SECRET": "@google_client_secret",
-    "NEXT_PUBLIC_GOOGLE_ENABLED": "@next_public_google_enabled"
-  }
+  "framework": "nextjs"
 }
