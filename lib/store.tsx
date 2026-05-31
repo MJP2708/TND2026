@@ -33,7 +33,7 @@ export function AppStateProvider({ children, userId }: { children: React.ReactNo
   const [state, setState] = useState<AppState>(() => createDemoState());
   const [ready, setReady] = useState(false);
 
-  const normalizeState = useCallback((incoming: AppState): AppState => {
+  const normalizeState = useCallback((incoming: Partial<AppState>): AppState => {
     const defaults = createDemoState();
     return {
       ...defaults,
@@ -43,27 +43,41 @@ export function AppStateProvider({ children, userId }: { children: React.ReactNo
       themeMode: incoming.themeMode ?? defaults.themeMode,
       uiTone: incoming.uiTone ?? defaults.uiTone,
       language: incoming.language ?? defaults.language,
+      energy: incoming.energy ?? defaults.energy,
+      happiness: incoming.happiness ?? defaults.happiness,
+      currentEra: incoming.currentEra ?? defaults.currentEra,
+      prestigeCount: incoming.prestigeCount ?? defaults.prestigeCount,
+      prestigeMultiplier: incoming.prestigeMultiplier ?? defaults.prestigeMultiplier,
+      lastLoginAt: incoming.lastLoginAt ?? defaults.lastLoginAt,
+      specialCitizens: incoming.specialCitizens ?? defaults.specialCitizens,
+      todayEvent: incoming.todayEvent ?? defaults.todayEvent,
+      todayEventDate: incoming.todayEventDate ?? defaults.todayEventDate,
+      totalBuilt: incoming.totalBuilt ?? defaults.totalBuilt,
+      pendingPassiveIncome: incoming.pendingPassiveIncome ?? defaults.pendingPassiveIncome,
+      constructionDiscount: incoming.constructionDiscount ?? defaults.constructionDiscount,
     };
   }, []);
 
   useEffect(() => {
     async function loadState() {
-      // 1. Try to load from DB (if authenticated)
       if (userId) {
         try {
           const res = await fetch("/api/user/state");
           if (res.ok) {
             const data = await res.json();
+            const gs = data.gameState;
             const dbState: AppState = {
               ...createDemoState(),
               userId: data.user.id,
               displayName: data.user.displayName,
               gold: data.user.gold,
+              energy: data.user.energy,
               xp: data.user.xp,
               level: levelFromXp(data.user.xp),
               streak: data.user.streak,
               focusMinutes: data.user.focusMinutes,
               houseLevel: data.user.houseLevel,
+              happiness: data.user.happiness,
               lastActiveDate: data.user.lastActiveDate,
               lastMoodDate: data.user.lastMoodDate,
               themeMode: data.user.themeMode,
@@ -74,23 +88,32 @@ export function AppStateProvider({ children, userId }: { children: React.ReactNo
               moods: data.moods,
               purchasedItems: data.purchasedItems,
               hasOnboarded: !!data.goal,
+              // Game state
+              currentEra: gs?.currentEra ?? "pioneer",
+              prestigeCount: gs?.prestigeCount ?? 0,
+              prestigeMultiplier: gs?.prestigeMultiplier ?? 1.0,
+              lastLoginAt: gs?.lastLoginAt ?? new Date().toISOString(),
+              specialCitizens: gs?.specialCitizens ?? [],
+              todayEvent: gs?.todayEvent ?? null,
+              todayEventDate: gs?.todayEventDate ?? "",
+              totalBuilt: gs?.totalBuilt ?? 0,
+              pendingPassiveIncome: gs?.pendingPassiveIncome ?? null,
+              constructionDiscount: gs?.constructionDiscount ?? false,
             };
             setState(dbState);
-            // Also cache in localStorage
             localStorage.setItem(KEY, JSON.stringify(dbState));
             setReady(true);
             return;
           }
         } catch {
-          // Fall through to localStorage
+          // fall through
         }
       }
 
-      // 2. Fall back to localStorage
       queueMicrotask(() => {
         try {
           const raw = localStorage.getItem(KEY);
-          setState(raw ? normalizeState(JSON.parse(raw) as AppState) : createDemoState());
+          setState(raw ? normalizeState(JSON.parse(raw) as Partial<AppState>) : createDemoState());
         } catch {
           setState(createDemoState());
         }

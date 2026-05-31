@@ -56,6 +56,7 @@ model User {
   updatedAt      DateTime  @updatedAt
 
   gold           Int       @default(500)
+  energy         Int       @default(100)
   xp             Int       @default(0)
   level          Int       @default(1)
   streak         Int       @default(0)
@@ -63,6 +64,7 @@ model User {
   lastActiveDate String?
   lastMoodDate   String?
   houseLevel     Int       @default(1)
+  happiness      Int       @default(50)
 
   themeMode      String    @default("light")
   uiTone         String    @default("sunrise")
@@ -90,6 +92,7 @@ model User {
   friendsReceived Friend[]  @relation("FriendTarget")
   companion       Companion?
   userDailyQuests UserDailyQuest[]
+  gameState       GameState?
 }
 
 // ── Goals & Tasks ─────────────────────────────────────────────────────────────
@@ -147,6 +150,28 @@ model FocusSession {
   task       Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
 }
 
+// ── Game State ────────────────────────────────────────────────────────────────
+
+model GameState {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  currentEra         String   @default("pioneer")
+  prestigeCount      Int      @default(0)
+  prestigeMultiplier Float    @default(1.0)
+  lastLoginAt        DateTime @default(now())
+  specialCitizens    Json     @default("[]")
+  eventHistory       Json     @default("[]")
+  todayEvent         Json?
+  todayEventDate     String   @default("")
+  totalBuilt           Int      @default(0)
+  pendingGold          Int      @default(0)
+  pendingEnergy        Int      @default(0)
+  constructionDiscount Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 // ── City Builder ──────────────────────────────────────────────────────────────
 
 model City {
@@ -162,18 +187,24 @@ model City {
 }
 
 model PlacedBuilding {
-  id       String   @id @default(cuid())
-  cityId   String
-  itemId   String
-  name     String
-  icon     String
-  category String   @default("Buildings")
-  x        Int      @default(-1)
-  y        Int      @default(-1)
-  rotation Int      @default(0)
-  level    Int      @default(1)
-  placedAt DateTime @default(now())
-  city     City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  cityId         String
+  itemId         String
+  name           String
+  icon           String
+  category       String   @default("Buildings")
+  x              Int      @default(-1)
+  y              Int      @default(-1)
+  rotation       Int      @default(0)
+  level          Int      @default(1)
+  district       String   @default("residential")
+  tier           Int      @default(1)
+  health         String   @default("healthy")
+  maintenanceDue DateTime @default(now())
+  citizens       Int      @default(0)
+  constructedAt  DateTime @default(now())
+  placedAt       DateTime @default(now())
+  city           City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
 }
 
 // ── Shop & Inventory ──────────────────────────────────────────────────────────

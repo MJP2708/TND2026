@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
-import { CurrencyDisplay } from "@/components/focusville/CurrencyDisplay";
 import { Bell, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import { completeTask as completeTaskDB } from "@/lib/actions/tasks";
 import { QuestPanel } from "@/components/game/QuestPanel";
 import { CompanionCard } from "@/components/game/CompanionCard";
 import { LoginRewardModal } from "@/components/game/LoginRewardModal";
+import { DailyEventCard } from "@/components/game/DailyEventCard";
+import { StreakMilestone } from "@/components/game/StreakMilestone";
+import { HappinessBar } from "@/components/game/HappinessBar";
+import type { DailyEvent } from "@/lib/types";
 
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 
@@ -60,6 +63,18 @@ export default function DashboardPage() {
   const planProgress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
   const focusHrs    = (state.focusMinutes / 60).toFixed(1);
 
+  // Active bonuses strip
+  const activeBonuses: string[] = [];
+  if (state.constructionDiscount) activeBonuses.push("⚒ 50% build discount active");
+  if (state.happiness >= 80) activeBonuses.push("🌟 +25% earnings (happy city)");
+  if (state.happiness < 25) activeBonuses.push("⚠️ City in crisis — earnings reduced");
+  if (state.specialCitizens.length > 0) {
+    state.specialCitizens.forEach((c) => activeBonuses.push(`${c.name}: ${c.bonus}`));
+  }
+
+  // Today's event — only show if date matches
+  const showEvent = state.todayEvent && state.todayEventDate === today;
+
   function toggleTask(id: string) {
     const task = state.tasks.find((t) => t.id === id);
     if (!task || task.status === "completed") return;
@@ -85,6 +100,19 @@ export default function DashboardPage() {
     completeTaskDB(id).catch(() => {});
   }
 
+  function handleEventResolved(effect: Record<string, unknown>) {
+    patch((s) => ({
+      ...s,
+      gold: typeof effect.gold === "number" ? Math.max(0, s.gold + effect.gold) : s.gold,
+      energy: typeof effect.energy === "number" ? Math.max(0, s.energy + effect.energy) : s.energy,
+      happiness: typeof effect.happiness === "number"
+        ? Math.max(0, Math.min(100, s.happiness + (effect.happiness as number)))
+        : s.happiness,
+      constructionDiscount: effect.constructionDiscount === true ? true : s.constructionDiscount,
+      todayEvent: null,
+    }));
+  }
+
   return (
     <FVShell>
       <LoginRewardModal />
@@ -97,7 +125,11 @@ export default function DashboardPage() {
           borderBottom: "1px solid #D6E9FF",
         }}>
           <div className="row between" style={{ marginBottom: 8 }}>
-            <div className="row gap-8">
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div className="fv-gold">
+                <span>⚡</span>
+                <span>{state.energy.toLocaleString()}</span>
+              </div>
               <div className="fv-gold">
                 <span>🪙</span>
                 <span>{state.gold.toLocaleString()}</span>
@@ -107,13 +139,7 @@ export default function DashboardPage() {
                 <span>{state.xp.toLocaleString()}</span>
               </div>
             </div>
-            <button style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              position: "relative",
-              padding: 4,
-            }}>
+            <button style={{ background: "none", border: "none", cursor: "pointer", position: "relative", padding: 4 }}>
               <Bell size={20} color="#6B7A99" />
               <div className="fv-dot" style={{ position: "absolute", top: 2, right: 2 }} />
             </button>
@@ -124,17 +150,79 @@ export default function DashboardPage() {
               <p style={{ margin: "0 0 2px", fontSize: "1.1rem", fontWeight: 900, color: "#1D2B53" }}>
                 {greeting()}, {state.displayName} {greetingEmoji()}
               </p>
-              {state.streak > 0 && (
-                <div className="fv-streak" style={{ display: "inline-flex" }}>
-                  🔥 {state.streak} day streak
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {state.streak > 0 && (
+                  <div className="fv-streak" style={{ display: "inline-flex" }}>
+                    🔥 {state.streak} day streak
+                  </div>
+                )}
+                <div style={{
+                  background: "#EBF5FF",
+                  borderRadius: 8,
+                  padding: "2px 8px",
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                  color: "#5EA9FF",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}>
+                  {state.currentEra === "pioneer" ? "🪨" : state.currentEra === "modern" ? "🏙" : "🌆"}
+                  {state.currentEra === "pioneer" ? " Pioneer" : state.currentEra === "modern" ? " Modern" : " Metropolis"}
                 </div>
-              )}
+              </div>
             </div>
             <Mascot size={44} mood={todayDone === todayTasks.length && todayTasks.length > 0 ? "celebrate" : "happy"} />
           </div>
         </div>
 
         <div style={{ padding: "16px 20px" }}>
+
+          {/* ── Active bonuses strip ── */}
+          {activeBonuses.length > 0 && (
+            <div style={{
+              background: "linear-gradient(90deg, #EBF5FF, #F0F8FF)",
+              border: "1px solid #D6E9FF",
+              borderRadius: 12,
+              padding: "8px 12px",
+              marginBottom: 12,
+              display: "flex",
+              gap: 8,
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch",
+            }}>
+              {activeBonuses.map((b, i) => (
+                <span key={i} style={{
+                  fontSize: "0.68rem",
+                  fontWeight: 700,
+                  color: "#5EA9FF",
+                  whiteSpace: "nowrap",
+                  padding: "2px 8px",
+                  background: "white",
+                  borderRadius: 6,
+                  border: "1px solid #D6E9FF",
+                }}>
+                  {b}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* ── Daily event card ── */}
+          {showEvent && state.todayEvent && (
+            <DailyEventCard
+              event={state.todayEvent as DailyEvent}
+              onResolved={handleEventResolved}
+            />
+          )}
+
+          {/* ── Happiness compact bar ── */}
+          <div className="fv-card animate-fade-up" style={{ marginBottom: 14, padding: "10px 14px" }}>
+            <HappinessBar happiness={state.happiness} compact />
+          </div>
+
+          {/* ── Streak milestone track ── */}
+          {state.streak > 0 && <StreakMilestone streak={state.streak} />}
 
           {/* ── Goal progress card ── */}
           {state.goal ? (
@@ -143,13 +231,7 @@ export default function DashboardPage() {
                 <p style={{ margin: 0, fontSize: "0.7rem", fontWeight: 700, opacity: 0.85 }}>Goal Progress</p>
                 <span style={{ fontSize: "1.1rem", fontWeight: 900 }}>{planProgress}%</span>
               </div>
-              <div style={{
-                height: 8,
-                background: "rgba(255,255,255,0.25)",
-                borderRadius: 999,
-                overflow: "hidden",
-                marginBottom: 6,
-              }}>
+              <div style={{ height: 8, background: "rgba(255,255,255,0.25)", borderRadius: 999, overflow: "hidden", marginBottom: 6 }}>
                 <div style={{
                   height: "100%",
                   width: `${planProgress}%`,
@@ -222,18 +304,13 @@ export default function DashboardPage() {
                       </p>
                       <p style={{ margin: "2px 0 0", fontSize: "0.7rem", color: "#6B7A99" }}>
                         <Clock size={10} style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }} />
-                        {task.minutes} min
+                        {task.minutes} min · +{task.gold}🪙
                       </p>
                     </div>
-                    <div
-                      style={{
-                        width: 4,
-                        alignSelf: "stretch",
-                        borderRadius: 2,
-                        background: TASK_CATEGORY_COLORS[task.category] ?? "#D6E9FF",
-                        flexShrink: 0,
-                      }}
-                    />
+                    <div style={{
+                      width: 4, alignSelf: "stretch", borderRadius: 2,
+                      background: TASK_CATEGORY_COLORS[task.category] ?? "#D6E9FF", flexShrink: 0,
+                    }} />
                   </div>
                 ))}
                 {todayTasks.length > 6 && (
@@ -252,16 +329,21 @@ export default function DashboardPage() {
           <QuestPanel />
 
           {/* ── Stats row ── */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }} className="animate-fade-up delay-2">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }} className="animate-fade-up delay-2">
             <div className="fv-stat">
-              <div style={{ fontSize: "1.4rem", marginBottom: 4 }}>🏆</div>
+              <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>🏆</div>
               <div className="fv-stat-value" style={{ color: "#5EA9FF" }}>Lv.{state.level}</div>
               <div className="fv-stat-label">{state.xp} XP</div>
             </div>
             <div className="fv-stat">
-              <div style={{ fontSize: "1.4rem", marginBottom: 4 }}>⏱</div>
+              <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>⏱</div>
               <div className="fv-stat-value">{focusHrs}h</div>
               <div className="fv-stat-label">Focus time</div>
+            </div>
+            <div className="fv-stat">
+              <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>⚡</div>
+              <div className="fv-stat-value">{state.energy}</div>
+              <div className="fv-stat-label">Energy</div>
             </div>
           </div>
 
@@ -270,8 +352,8 @@ export default function DashboardPage() {
             <Link href="/focus" className="fv-btn fv-btn-primary fv-btn-full" style={{ height: 52, borderRadius: 16 }}>
               ▶ Start Focus
             </Link>
-            <Link href="/mood" className="fv-btn fv-btn-secondary fv-btn-full" style={{ height: 52, borderRadius: 16 }}>
-              💚 Check In
+            <Link href="/community" className="fv-btn fv-btn-secondary fv-btn-full" style={{ height: 52, borderRadius: 16 }}>
+              🏙 My City
             </Link>
           </div>
         </div>

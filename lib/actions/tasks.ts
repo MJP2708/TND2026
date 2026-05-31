@@ -7,6 +7,12 @@ import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
 import { updateQuestProgress } from "./quests";
 import { boostCompanionFromActivity } from "./companion";
+import {
+  applyHappinessDelta,
+  applyStreakMilestoneReward,
+  checkEraProgression,
+} from "./game-state";
+import { getHappinessMultiplier } from "@/lib/game-utils";
 
 async function requireAuth() {
   const session = await auth();
@@ -14,7 +20,14 @@ async function requireAuth() {
   return session.user.id;
 }
 
-// Save a full AI-generated plan to the database
+// Gold awarded by task difficulty (priority proxy)
+// low (1-2) = 10, medium (3) = 20, high (4-5) = 35
+function goldByPriority(difficulty: number): number {
+  if (difficulty <= 2) return 10;
+  if (difficulty === 3) return 20;
+  return 35;
+}
+
 export async function savePlan(tasks: {
   id: string;
   day: string;
@@ -35,7 +48,6 @@ export async function savePlan(tasks: {
 }) {
   const userId = await requireAuth();
 
-  // Deactivate old goals
   await db.goal.updateMany({
     where: { userId, isActive: true },
     data: { isActive: false },
@@ -73,20 +85,15 @@ export async function savePlan(tasks: {
   return { goalId: newGoal.id };
 }
 
-// Complete a task — server-side validation of rewards
 export async function completeTask(taskId: string) {
   const userId = await requireAuth();
 
-  const task = await db.task.findFirst({
-    where: { id: taskId, userId },
-  });
-
+  const task = await db.task.findFirst({ where: { id: taskId, userId } });
   if (!task) return { error: "Task not found" };
   if (task.status === "completed") return { error: "Already completed" };
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Update task
   await db.task.update({
     where: { id: taskId },
     data: {
@@ -97,7 +104,6 @@ export async function completeTask(taskId: string) {
     },
   });
 
-  // Award gold + XP to user
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found" };
 
@@ -111,10 +117,15 @@ export async function completeTask(taskId: string) {
       ? user.streak + 1
       : 1;
 
+  // Apply happiness multiplier to gold reward
+  const happinessMultiplier = getHappinessMultiplier(user.happiness ?? 50);
+  const baseGold = goldByPriority(task.difficulty);
+  const finalGold = Math.floor((task.gold + baseGold) * happinessMultiplier);
+
   await db.user.update({
     where: { id: userId },
     data: {
-      gold: { increment: task.gold },
+      gold: { increment: finalGold },
       xp: { increment: task.xp },
       focusMinutes: { increment: task.minutes },
       streak: newStreak,
@@ -122,9 +133,22 @@ export async function completeTask(taskId: string) {
     },
   });
 
-  await checkAchievements(userId);
+  // Check if 3+ tasks completed today → +5 happiness
+  const todayDone = await db.task.count({
+    where: { userId, day: today, status: "completed" },
+  });
+  if (todayDone >= 3) {
+    await applyHappinessDelta(userId, 5);
+  }
 
-  // Quest progress + companion (non-critical, fire-and-forget style)
+  // Streak milestone rewards
+  if (newStreak !== user.streak) {
+    await applyStreakMilestoneReward(userId, newStreak);
+  }
+
+  await checkAchievements(userId);
+  await checkEraProgression(userId);
+
   try {
     await updateQuestProgress("complete_1_task", 1, userId);
     await updateQuestProgress("complete_3_tasks", 1, userId);
@@ -134,23 +158,19 @@ export async function completeTask(taskId: string) {
   revalidatePath("/plan");
   revalidatePath("/dashboard");
 
-  return { gold: task.gold, xp: task.xp, streak: newStreak };
+  return { gold: finalGold, xp: task.xp, streak: newStreak };
 }
 
-// Load user's active goal + tasks
 export async function loadUserPlan() {
   const userId = await requireAuth();
-
   const goal = await db.goal.findFirst({
     where: { userId, isActive: true },
     orderBy: { createdAt: "desc" },
     include: { tasks: { orderBy: { day: "asc" } } },
   });
-
   return goal;
 }
 
-// Delete current plan (for regeneration)
 export async function clearPlan() {
   const userId = await requireAuth();
   await db.goal.updateMany({

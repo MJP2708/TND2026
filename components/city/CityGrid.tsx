@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { placeBuilding, moveBuilding, sellBuilding, upgradeBuilding, rotatBuilding } from "@/lib/actions/city";
+import type { DistrictType } from "@/lib/types";
 import { RotateCcw, Move, Trash2, TrendingUp, X, Plus } from "lucide-react";
 
 type PlacedBuilding = {
@@ -52,7 +53,7 @@ export function CityGrid({ buildings, onUpdate, gold }: Props) {
     if (mode === "place" && toPlace) {
       if (occupant) { showToast("Tile is already occupied!"); return; }
       startTransition(async () => {
-        const result = await placeBuilding({ buildingId: toPlace.id, x, y });
+        const result = await placeBuilding({ buildingId: toPlace.id, x, y, district: "residential" as DistrictType });
         if (result.error) { showToast(result.error); return; }
         setToPlace(null);
         setMode("view");
@@ -65,7 +66,7 @@ export function CityGrid({ buildings, onUpdate, gold }: Props) {
       if (occupant && occupant.id !== selected.id) { showToast("Tile is already occupied!"); return; }
       if (occupant?.id === selected.id) return;
       startTransition(async () => {
-        const result = await moveBuilding({ buildingId: selected.id, x, y });
+        const result = await moveBuilding({ buildingId: selected.id, x, y, district: "residential" as DistrictType });
         if (result.error) { showToast(result.error); return; }
         setSelected(null);
         setMode("view");

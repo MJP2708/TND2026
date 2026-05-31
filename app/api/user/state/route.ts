@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { calculatePassiveIncome, getTodayEvent, checkDailyHappiness } from "@/lib/actions/game-state";
+import { tickBuildingHealth as tickHealth } from "@/lib/actions/maintenance";
 
 export async function GET() {
   const session = await auth();
@@ -10,7 +12,20 @@ export async function GET() {
 
   const userId = session.user.id;
 
-  const [user, activeGoal, moods, purchases, achievements, city] = await Promise.all([
+  // Run passive income + health ticks (non-blocking side effects)
+  const [passiveIncome] = await Promise.allSettled([
+    calculatePassiveIncome(userId),
+    checkDailyHappiness(userId),
+    tickHealth(userId),
+  ]);
+
+  const pendingPassiveIncome =
+    passiveIncome.status === "fulfilled" ? passiveIncome.value : null;
+
+  // Load today's event (creates if needed)
+  await getTodayEvent(userId).catch(() => null);
+
+  const [user, activeGoal, moods, purchases, achievements, city, gameState] = await Promise.all([
     db.user.findUnique({ where: { id: userId } }),
     db.goal.findFirst({
       where: { userId, isActive: true },
@@ -20,6 +35,7 @@ export async function GET() {
     db.purchase.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
     db.userAchievement.findMany({ where: { userId }, include: { achievement: true } }),
     db.city.findUnique({ where: { userId }, include: { buildings: true } }),
+    db.gameState.findUnique({ where: { userId } }),
   ]);
 
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -30,17 +46,44 @@ export async function GET() {
       displayName: user.displayName ?? user.name ?? "Student",
       email: user.email,
       gold: user.gold,
+      energy: user.energy,
       xp: user.xp,
       level: user.level,
       streak: user.streak,
       focusMinutes: user.focusMinutes,
       houseLevel: user.houseLevel,
+      happiness: user.happiness,
       lastActiveDate: user.lastActiveDate ?? "",
       lastMoodDate: user.lastMoodDate ?? "",
       themeMode: user.themeMode,
       uiTone: user.uiTone,
       language: user.language,
     },
+    gameState: gameState
+      ? {
+          currentEra: gameState.currentEra,
+          prestigeCount: gameState.prestigeCount,
+          prestigeMultiplier: gameState.prestigeMultiplier,
+          lastLoginAt: gameState.lastLoginAt.toISOString(),
+          specialCitizens: gameState.specialCitizens,
+          todayEvent: gameState.todayEvent,
+          todayEventDate: gameState.todayEventDate,
+          totalBuilt: gameState.totalBuilt,
+          constructionDiscount: (gameState as { constructionDiscount?: boolean }).constructionDiscount ?? false,
+          pendingPassiveIncome,
+        }
+      : {
+          currentEra: "pioneer",
+          prestigeCount: 0,
+          prestigeMultiplier: 1.0,
+          lastLoginAt: new Date().toISOString(),
+          specialCitizens: [],
+          todayEvent: null,
+          todayEventDate: "",
+          totalBuilt: 0,
+          constructionDiscount: false,
+          pendingPassiveIncome,
+        },
     goal: activeGoal
       ? {
           id: activeGoal.id,
@@ -80,7 +123,23 @@ export async function GET() {
       ? {
           id: city.id,
           name: city.name,
-          buildings: city.buildings,
+          buildings: city.buildings.map((b) => ({
+            id: b.id,
+            itemId: b.itemId,
+            name: b.name,
+            icon: b.icon,
+            category: b.category,
+            x: b.x,
+            y: b.y,
+            rotation: b.rotation,
+            level: b.level,
+            district: b.district,
+            tier: b.tier,
+            health: b.health,
+            maintenanceDue: b.maintenanceDue.toISOString(),
+            citizens: b.citizens,
+            constructedAt: b.constructedAt.toISOString(),
+          })),
         }
       : null,
   });

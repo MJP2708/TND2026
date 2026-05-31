@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
+import { ITEM_CATALOG } from "./shop";
+import type { DistrictType } from "@/lib/types";
 
 async function requireAuth() {
   const session = await auth();
@@ -12,60 +14,53 @@ async function requireAuth() {
   return session.user.id;
 }
 
-// Item sell value = 50% of original cost
 const SELL_REFUND_RATE = 0.5;
-const ITEM_COSTS: Record<string, number> = {
-  desk: 450, shelf: 350, plant: 200, lamp: 150, sofa: 600, board: 300,
-  trophy: 800, flag: 250, stars: 400, fountain: 1200, garden: 550, art: 700,
-};
+
+// District-slot coordinate system:
+// Each district has a 3×2 grid (6 slots).
+// x = 0-2 (column within district), y = 0-1 (row within district)
+// district stored separately.
+const PlaceSchema = z.object({
+  buildingId: z.string(),
+  x: z.number().int().min(0).max(2),
+  y: z.number().int().min(0).max(1),
+  district: z.enum(["residential", "industrial", "green", "knowledge"]),
+});
 
 export async function getCity() {
   const userId = await requireAuth();
   const city = await db.city.findUnique({
     where: { userId },
-    include: { buildings: { orderBy: { placedAt: "asc" } } },
+    include: { buildings: { orderBy: { constructedAt: "asc" } } },
   });
   if (!city) {
-    // Auto-create city on first access
-    return db.city.create({
-      data: { userId },
-      include: { buildings: true },
-    });
+    return db.city.create({ data: { userId }, include: { buildings: true } });
   }
   return city;
 }
 
-const PlaceSchema = z.object({
-  buildingId: z.string(),
-  x: z.number().int().min(0).max(9),
-  y: z.number().int().min(0).max(7),
-});
-
-export async function placeBuilding(input: { buildingId: string; x: number; y: number }) {
+export async function placeBuilding(input: { buildingId: string; x: number; y: number; district: DistrictType }) {
   const userId = await requireAuth();
   const parsed = PlaceSchema.safeParse(input);
-  if (!parsed.success) return { error: "Invalid coordinates" };
+  if (!parsed.success) return { error: "Invalid placement" };
 
-  const { buildingId, x, y } = parsed.data;
+  const { buildingId, x, y, district } = parsed.data;
 
-  const city = await db.city.findUnique({
-    where: { userId },
-    include: { buildings: true },
-  });
+  const city = await db.city.findUnique({ where: { userId }, include: { buildings: true } });
   if (!city) return { error: "City not found" };
 
   const building = city.buildings.find((b) => b.id === buildingId);
   if (!building) return { error: "Building not found" };
 
-  // Check for overlap
+  // Check for overlap within the same district
   const occupied = city.buildings.some(
-    (b) => b.id !== buildingId && b.x === x && b.y === y
+    (b) => b.id !== buildingId && b.x === x && b.y === y && b.district === district
   );
-  if (occupied) return { error: "Tile is already occupied" };
+  if (occupied) return { error: "Slot already occupied" };
 
   await db.placedBuilding.update({
     where: { id: buildingId },
-    data: { x, y },
+    data: { x, y, district },
   });
 
   await checkAchievements(userId);
@@ -73,31 +68,25 @@ export async function placeBuilding(input: { buildingId: string; x: number; y: n
   return { success: true };
 }
 
-export async function moveBuilding(input: { buildingId: string; x: number; y: number }) {
+export async function moveBuilding(input: { buildingId: string; x: number; y: number; district: DistrictType }) {
   const userId = await requireAuth();
   const parsed = PlaceSchema.safeParse(input);
-  if (!parsed.success) return { error: "Invalid coordinates" };
+  if (!parsed.success) return { error: "Invalid placement" };
 
-  const { buildingId, x, y } = parsed.data;
+  const { buildingId, x, y, district } = parsed.data;
 
-  const city = await db.city.findUnique({
-    where: { userId },
-    include: { buildings: true },
-  });
+  const city = await db.city.findUnique({ where: { userId }, include: { buildings: true } });
   if (!city) return { error: "City not found" };
 
   const building = city.buildings.find((b) => b.id === buildingId);
   if (!building || building.x < 0) return { error: "Building not on grid" };
 
   const occupied = city.buildings.some(
-    (b) => b.id !== buildingId && b.x === x && b.y === y
+    (b) => b.id !== buildingId && b.x === x && b.y === y && b.district === district
   );
-  if (occupied) return { error: "Tile is already occupied" };
+  if (occupied) return { error: "Slot already occupied" };
 
-  await db.placedBuilding.update({
-    where: { id: buildingId },
-    data: { x, y },
-  });
+  await db.placedBuilding.update({ where: { id: buildingId }, data: { x, y, district } });
 
   revalidatePath("/community");
   return { success: true };
@@ -113,15 +102,12 @@ export async function sellBuilding(buildingId: string) {
   if (!city || city.buildings.length === 0) return { error: "Building not found" };
 
   const building = city.buildings[0];
-  const originalCost = ITEM_COSTS[building.itemId] ?? 200;
+  const catalogItem = ITEM_CATALOG[building.itemId];
+  const originalCost = catalogItem ? catalogItem.goldCost : 200;
   const refund = Math.round(originalCost * SELL_REFUND_RATE);
 
   await db.placedBuilding.delete({ where: { id: buildingId } });
-
-  await db.user.update({
-    where: { id: userId },
-    data: { gold: { increment: refund } },
-  });
+  await db.user.update({ where: { id: userId }, data: { gold: { increment: refund } } });
 
   revalidatePath("/community");
   return { success: true, refund };
@@ -137,25 +123,30 @@ export async function upgradeBuilding(buildingId: string) {
   if (!city || city.buildings.length === 0) return { error: "Building not found" };
 
   const building = city.buildings[0];
-  const baseCost = ITEM_COSTS[building.itemId] ?? 200;
-  const upgradeCost = Math.round(baseCost * 0.5 * building.level);
+  const catalogItem = ITEM_CATALOG[building.itemId];
+  const baseGoldCost = catalogItem ? catalogItem.goldCost : 200;
+  const baseEnergyCost = catalogItem ? catalogItem.energyCost : 50;
+
+  const goldUpgradeCost = Math.round(baseGoldCost * 0.5 * building.level);
+  const energyUpgradeCost = Math.round(baseEnergyCost * 0.3 * building.level);
 
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found" };
-  if (user.gold < upgradeCost) return { error: "Not enough gold", needed: upgradeCost };
+  if (user.gold < goldUpgradeCost) return { error: "Not enough gold", needed: goldUpgradeCost };
+  if (user.energy < energyUpgradeCost) return { error: "Not enough energy", needed: energyUpgradeCost };
 
   await db.placedBuilding.update({
     where: { id: buildingId },
-    data: { level: { increment: 1 } },
+    data: { level: { increment: 1 }, tier: Math.min(5, building.tier + 1) },
   });
 
   await db.user.update({
     where: { id: userId },
-    data: { gold: { decrement: upgradeCost } },
+    data: { gold: { decrement: goldUpgradeCost }, energy: { decrement: energyUpgradeCost } },
   });
 
   revalidatePath("/community");
-  return { success: true, upgradeCost };
+  return { success: true, goldUpgradeCost, energyUpgradeCost };
 }
 
 export async function rotatBuilding(buildingId: string) {
@@ -170,11 +161,36 @@ export async function rotatBuilding(buildingId: string) {
   const building = city.buildings[0];
   const newRotation = (building.rotation + 90) % 360;
 
-  await db.placedBuilding.update({
-    where: { id: buildingId },
-    data: { rotation: newRotation },
-  });
+  await db.placedBuilding.update({ where: { id: buildingId }, data: { rotation: newRotation } });
 
   revalidatePath("/community");
   return { success: true, rotation: newRotation };
+}
+
+// Check district mastery: 4+ correct-type buildings in a district
+export async function checkDistrictMastery(_ignored?: string): Promise<Record<string, boolean>> {
+  const userId = await requireAuth();
+  const city = await db.city.findUnique({
+    where: { userId },
+    include: { buildings: { where: { x: { gte: 0 }, health: { not: "collapsed" } } } },
+  });
+  if (!city) return {};
+
+  const districtCorrect: Record<DistrictType, string[]> = {
+    residential: ["cottage", "cafe", "apartment", "sofa"],
+    industrial:  ["farm", "office", "skyscraper", "desk"],
+    green:       ["park", "garden", "campfire", "fountain", "gym", "skygarden", "plant", "lamp"],
+    knowledge:   ["market", "library", "techlab", "aicenter", "shelf", "board"],
+  };
+
+  const result: Record<string, boolean> = {};
+  const districts: DistrictType[] = ["residential", "industrial", "green", "knowledge"];
+
+  for (const d of districts) {
+    const inDistrict = city.buildings.filter((b) => b.district === d);
+    const correctType = inDistrict.filter((b) => districtCorrect[d].includes(b.itemId));
+    result[d] = correctType.length >= 4;
+  }
+
+  return result;
 }

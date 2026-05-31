@@ -7,6 +7,12 @@ import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
 import { updateQuestProgress } from "./quests";
 import { boostCompanionFromActivity } from "./companion";
+import {
+  applyHappinessDelta,
+  applyStreakMilestoneReward,
+  checkEraProgression,
+} from "./game-state";
+import { getHappinessMultiplier } from "@/lib/game-utils";
 
 async function requireAuth() {
   const session = await auth();
@@ -22,6 +28,14 @@ const SessionSchema = z.object({
   xpEarned: z.number().int().min(0),
 });
 
+// Energy awarded per session length:
+// 25 min = 50 Energy, 50 min = 110 Energy, proportional otherwise
+function calcEnergy(minutes: number): number {
+  if (minutes <= 0) return 0;
+  if (minutes <= 25) return Math.round((minutes / 25) * 50);
+  return Math.round(50 + ((minutes - 25) / 25) * 60);
+}
+
 export async function saveFocusSession(input: {
   taskId?: string;
   minutes: number;
@@ -35,33 +49,26 @@ export async function saveFocusSession(input: {
 
   const { taskId, minutes, completion, goldEarned, xpEarned } = parsed.data;
 
-  // Verify task belongs to user and is not already completed
   if (taskId) {
     const task = await db.task.findFirst({ where: { id: taskId, userId } });
     if (!task) return { error: "Task not found" };
     if (task.status === "completed") {
-      // Session save still works, but no rewards
       await db.focusSession.create({
         data: { userId, taskId, minutes, completion, goldEarned: 0, xpEarned: 0 },
       });
-      return { gold: 0, xp: 0 };
+      return { gold: 0, xp: 0, energy: 0 };
     }
 
-    // Mark task completed/partial
     const newStatus = completion >= 100 ? "completed" : "partial";
     await db.task.update({
       where: { id: taskId },
-      data: {
-        status: newStatus,
-        completion,
-        focusMinutes: { increment: minutes },
-      },
+      data: { status: newStatus, completion, focusMinutes: { increment: minutes } },
     });
   }
 
-  // Validate reward amounts server-side (cap at reasonable max)
   const safeGold = Math.min(goldEarned, 500);
   const safeXp = Math.min(xpEarned, 1000);
+  const energyEarned = calcEnergy(minutes);
 
   const today = new Date().toISOString().slice(0, 10);
   const user = await db.user.findUnique({ where: { id: userId } });
@@ -76,14 +83,20 @@ export async function saveFocusSession(input: {
       ? user.streak + 1
       : 1;
 
+  // Apply happiness multiplier to gold/energy rewards
+  const happinessMultiplier = getHappinessMultiplier(user.happiness ?? 50);
+  const finalGold = Math.floor(safeGold * happinessMultiplier);
+  const finalEnergy = Math.floor(energyEarned * happinessMultiplier);
+
   await db.focusSession.create({
-    data: { userId, taskId, minutes, completion, goldEarned: safeGold, xpEarned: safeXp },
+    data: { userId, taskId, minutes, completion, goldEarned: finalGold, xpEarned: safeXp },
   });
 
   await db.user.update({
     where: { id: userId },
     data: {
-      gold: { increment: safeGold },
+      gold: { increment: finalGold },
+      energy: { increment: finalEnergy },
       xp: { increment: safeXp },
       focusMinutes: { increment: minutes },
       streak: newStreak,
@@ -91,7 +104,18 @@ export async function saveFocusSession(input: {
     },
   });
 
+  // Happiness: focus ≥ 25 min → +10
+  if (minutes >= 25) {
+    await applyHappinessDelta(userId, 10);
+  }
+
+  // Streak milestone rewards
+  if (newStreak !== user.streak) {
+    await applyStreakMilestoneReward(userId, newStreak);
+  }
+
   await checkAchievements(userId);
+  await checkEraProgression(userId);
 
   try {
     await updateQuestProgress("focus_25min", minutes, userId);
@@ -102,7 +126,7 @@ export async function saveFocusSession(input: {
   revalidatePath("/focus");
   revalidatePath("/progress");
 
-  return { gold: safeGold, xp: safeXp, streak: newStreak };
+  return { gold: finalGold, xp: safeXp, energy: finalEnergy, streak: newStreak };
 }
 
 export async function getFocusHistory() {
