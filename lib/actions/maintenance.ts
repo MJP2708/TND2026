@@ -98,7 +98,7 @@ export async function payMaintenance(buildingId: string): Promise<{ success: boo
   return { success: true, cost };
 }
 
-export async function getMaintenanceStatus(_ignored?: string) {
+export async function getMaintenanceStatus() {
   const userId = await requireAuth();
   const city = await db.city.findUnique({
     where: { userId },

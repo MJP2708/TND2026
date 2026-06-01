@@ -168,7 +168,7 @@ export async function rotatBuilding(buildingId: string) {
 }
 
 // Check district mastery: 4+ correct-type buildings in a district
-export async function checkDistrictMastery(_ignored?: string): Promise<Record<string, boolean>> {
+export async function checkDistrictMastery(): Promise<Record<string, boolean>> {
   const userId = await requireAuth();
   const city = await db.city.findUnique({
     where: { userId },

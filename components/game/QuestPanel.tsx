@@ -40,7 +40,6 @@ export function QuestPanel() {
   }
 
   const completedCount = quests.filter((q) => q.completed).length;
-  const claimedCount   = quests.filter((q) => q.claimed).length;
   const allClaimed     = quests.length > 0 && quests.every((q) => q.claimed);
 
   if (quests.length === 0) return null;

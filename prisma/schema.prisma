@@ -134,6 +134,10 @@ model Task {
   user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   goal         Goal?          @relation(fields: [goalId], references: [id], onDelete: SetNull)
   sessions     FocusSession[]
+
+  @@index([userId, day])
+  @@index([userId, status])
+  @@index([goalId])
 }
 
 model FocusSession {
@@ -148,6 +152,9 @@ model FocusSession {
   endedAt    DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   task       Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([userId, startedAt])
+  @@index([taskId])
 }
 
 // ── Game State ────────────────────────────────────────────────────────────────
@@ -205,6 +212,9 @@ model PlacedBuilding {
   constructedAt  DateTime @default(now())
   placedAt       DateTime @default(now())
   city           City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@index([cityId, district])
+  @@index([cityId, health])
 }
 
 // ── Shop & Inventory ──────────────────────────────────────────────────────────
@@ -218,6 +228,9 @@ model Purchase {
   cost      Int
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, itemId])
+  @@index([userId, createdAt])
 }
 
 // ── Mood ──────────────────────────────────────────────────────────────────────

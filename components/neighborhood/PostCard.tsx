@@ -21,7 +21,7 @@ type Post = {
 
 type Props = { post: Post; currentUserId: string };
 
-export function PostCard({ post, currentUserId }: Props) {
+export function PostCard({ post }: Props) {
   const [liked, setLiked] = useState(post.likedByMe);
   const [likesCount, setLikesCount] = useState(post.likesCount);
   const [showComments, setShowComments] = useState(false);

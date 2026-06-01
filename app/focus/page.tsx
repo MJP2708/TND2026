@@ -21,14 +21,17 @@ function fmt(secs: number) {
   return `${m}:${s}`;
 }
 
+// Module-level constant — computed once, avoids impure calls during render
+const CONFETTI_ITEMS = Array.from({ length: 24 }, (_, i) => ({
+  x: (i * 4.17 + 2) % 100,
+  delay: (i * 0.034) % 0.8,
+  color: ["#5EA9FF", "#7EDC8A", "#FFD45E", "#FF7B7B", "#A78BFA"][i % 5],
+  size: 6 + (i % 9),
+  duration: 1.5 + (i % 10) * 0.1,
+}));
+
 function Confetti() {
-  const items = Array.from({ length: 24 }, (_, i) => ({
-    x: Math.random() * 100,
-    delay: Math.random() * 0.8,
-    color: ["#5EA9FF", "#7EDC8A", "#FFD45E", "#FF7B7B", "#A78BFA"][i % 5],
-    size: 6 + Math.random() * 8,
-    duration: 1.5 + Math.random(),
-  }));
+  const items = CONFETTI_ITEMS;
   return (
     <div className="fv-confetti">
       {items.map((item, i) => (
@@ -62,16 +65,20 @@ function FocusPageInner() {
   const searchParams = useSearchParams();
   const urlTaskId = searchParams.get("taskId") ?? "";
 
-  const [selectedId, setSelectedId]   = useState(urlTaskId);
-  const [phase, setPhase]             = useState<Phase>("idle");
-  const [elapsed, setElapsed]         = useState(0);
+  const TIMER_KEY = "tf:focus:timer";
+
+  const [selectedId, setSelectedId] = useState(urlTaskId);
+  const [phase, setPhase]           = useState<Phase>("idle");
+  const [elapsed, setElapsed]       = useState(0);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showSelector, setShowSelector]   = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const TIMER_KEY = "tf:focus:timer";
+  const restoredRef = useRef(false);
 
-  // Restore timer from localStorage on mount
+  // Restore timer from localStorage — runs once on mount
   useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
     try {
       const raw = localStorage.getItem(TIMER_KEY);
       if (!raw) return;
@@ -79,16 +86,22 @@ function FocusPageInner() {
       const ageMs = Date.now() - saved.savedAt;
       if (ageMs > 24 * 60 * 60 * 1000) { localStorage.removeItem(TIMER_KEY); return; }
       if (saved.phase === "running" || saved.phase === "paused") {
-        const additionalSecs = saved.phase === "running" ? Math.floor(ageMs / 1000) : 0;
-        const restoredElapsed = saved.elapsed + additionalSecs;
+        const additional = saved.phase === "running" ? Math.floor(ageMs / 1000) : 0;
+        /* eslint-disable react-hooks/set-state-in-effect */
         setSelectedId(saved.taskId || urlTaskId);
-        setElapsed(restoredElapsed);
-        // Always restore as paused so user confirms resuming — prevents silent background timer
+        setElapsed(saved.elapsed + additional);
         setPhase("paused");
+        /* eslint-enable react-hooks/set-state-in-effect */
       }
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sync URL taskId when navigating from plan page
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (urlTaskId) setSelectedId(urlTaskId);
+  }, [urlTaskId]);
 
   // Persist timer state to localStorage on every change
   useEffect(() => {
@@ -98,11 +111,6 @@ function FocusPageInner() {
       localStorage.setItem(TIMER_KEY, JSON.stringify({ taskId: selectedId, elapsed, phase, savedAt: Date.now() }));
     }
   }, [phase, elapsed, selectedId]);
-
-  // When URL changes (navigating from plan), update selected task
-  useEffect(() => {
-    if (urlTaskId) setSelectedId(urlTaskId);
-  }, [urlTaskId]);
 
   const allActionable = state.tasks.filter((t) => !t.isRecovery);
   const pendingTasks  = allActionable.filter((t) => t.status !== "completed");
@@ -328,7 +336,7 @@ function FocusPageInner() {
         <div style={{ padding: "60px 20px", textAlign: "center" }}>
           <Mascot size={90} mood="celebrate" float />
           <h2 style={{ margin: "16px 0 8px", fontWeight: 900, color: "#1D2B53" }}>All done! 🏆</h2>
-          <p style={{ margin: "0 0 20px", color: "#6B7A99", fontSize: "0.88rem" }}>Rest up, you've earned it 🌙</p>
+          <p style={{ margin: "0 0 20px", color: "#6B7A99", fontSize: "0.88rem" }}>Rest up, you&apos;ve earned it 🌙</p>
           <button
             className="fv-btn fv-btn-ghost fv-btn-full"
             onClick={() => router.push("/plan")}

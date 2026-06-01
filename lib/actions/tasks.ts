@@ -2,7 +2,6 @@
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
 import { updateQuestProgress } from "./quests";
@@ -13,6 +12,7 @@ import {
   checkEraProgression,
 } from "./game-state";
 import { getHappinessMultiplier } from "@/lib/game-utils";
+import { calcNewStreak } from "@/lib/streak-utils";
 
 async function requireAuth() {
   const session = await auth();
@@ -107,15 +107,7 @@ export async function completeTask(taskId: string) {
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found" };
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yStr = yesterday.toISOString().slice(0, 10);
-  const newStreak =
-    user.lastActiveDate === today
-      ? user.streak
-      : user.lastActiveDate === yStr
-      ? user.streak + 1
-      : 1;
+  const newStreak = calcNewStreak(user.lastActiveDate, user.streak);
 
   // Apply happiness multiplier to gold reward
   const happinessMultiplier = getHappinessMultiplier(user.happiness ?? 50);

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { placeBuilding, moveBuilding, sellBuilding, upgradeBuilding, rotatBuilding } from "@/lib/actions/city";
-import { RotateCcw, Move, Trash2, TrendingUp, X, Plus, Users } from "lucide-react";
+import { RotateCcw, Move, Trash2, TrendingUp, X, Plus } from "lucide-react";
 import type { DistrictType } from "@/lib/types";
 
 type BuildingData = {
@@ -25,7 +25,7 @@ type Props = {
   buildings: BuildingData[];
   onUpdate: () => void;
   gold: number;
-  energy: number;
+  energy?: number;
   districtMastery: Record<string, boolean>;
 };
 
@@ -51,11 +51,10 @@ function healthStyle(health: string): React.CSSProperties {
 
 type Mode = "view" | "place" | "move";
 
-export function DistrictGrid({ buildings, onUpdate, gold, energy, districtMastery }: Props) {
+export function DistrictGrid({ buildings, onUpdate, districtMastery }: Props) {
   const [selected, setSelected] = useState<BuildingData | null>(null);
   const [toPlace, setToPlace] = useState<BuildingData | null>(null);
   const [mode, setMode] = useState<Mode>("view");
-  const [targetDistrict, setTargetDistrict] = useState<DistrictType | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -80,7 +79,6 @@ export function DistrictGrid({ buildings, onUpdate, gold, energy, districtMaster
         if ("error" in result && result.error) { showToast(result.error); return; }
         setToPlace(null);
         setMode("view");
-        setTargetDistrict(null);
         onUpdate();
       });
       return;
@@ -117,7 +115,6 @@ export function DistrictGrid({ buildings, onUpdate, gold, energy, districtMaster
     setMode("view");
     setToPlace(null);
     setSelected(null);
-    setTargetDistrict(null);
   }
 
   function handleStartMove() {

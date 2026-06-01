@@ -23,6 +23,7 @@ export function LoginRewardModal() {
         }
       } catch { /* ignore */ }
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!reward || dismissed) return null;

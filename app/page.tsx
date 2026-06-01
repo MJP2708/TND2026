@@ -261,7 +261,7 @@ export default function LandingPage() {
           {/* Quote */}
           <div className="fv-card fv-card-soft-blue">
             <p style={{ margin: 0, fontSize: "0.85rem", fontWeight: 700, color: "#3A8FE8", lineHeight: 1.6 }}>
-              "The more you focus in real life, the more your city comes to life."
+              &ldquo;The more you focus in real life, the more your city comes to life.&rdquo;
             </p>
             <div style={{ marginTop: 12 }}>
               <Mascot size={28} mood="happy" />

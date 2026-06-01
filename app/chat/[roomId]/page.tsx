@@ -45,6 +45,7 @@ export default function ChatPage({ params }: { params: { roomId: string } }) {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.roomId]);
 
   useEffect(() => {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
@@ -10,7 +9,6 @@ import { User, LogOut, ChevronRight, RotateCcw } from "lucide-react";
 import { updateUserProfile } from "@/lib/actions/auth";
 
 export default function SettingsPage() {
-  const router = useRouter();
   const { state, patch, resetDemo, ready } = useStore();
   const [name, setName]               = useState("");
   const [nameEditing, setNameEditing] = useState(false);

@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { registerUser } from "@/lib/actions/auth";
 import { Mascot } from "@/components/focusville/Mascot";

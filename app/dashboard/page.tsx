@@ -5,6 +5,7 @@ import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
 import { Bell, CheckCircle2, Clock, ChevronRight } from "lucide-react";
+import { fvToast } from "@/lib/toast";
 import { completeTask as completeTaskDB } from "@/lib/actions/tasks";
 import { QuestPanel } from "@/components/game/QuestPanel";
 import { CompanionCard } from "@/components/game/CompanionCard";
@@ -97,6 +98,7 @@ export default function DashboardPage() {
         ),
       };
     });
+    fvToast.reward(`✅ ${task.title}`, task.gold, task.xp);
     completeTaskDB(id).catch(() => {});
   }
 

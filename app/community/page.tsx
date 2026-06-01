@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback } from "react";
+import { useState, useEffect, useTransition, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useStore } from "@/lib/store";
@@ -16,9 +16,7 @@ import { createPost, getOrCreateDM } from "@/lib/actions/posts";
 import { checkDistrictMastery } from "@/lib/actions/city";
 import { getMaintenanceStatus } from "@/lib/actions/maintenance";
 import type { EraType, PassiveIncome } from "@/lib/types";
-import {
-  Search, Send, MessageCircle, Loader2, ChevronLeft,
-} from "lucide-react";
+import { Search, Send, MessageCircle, Loader2 } from "lucide-react";
 
 type MainTab = "city" | "neighborhood";
 type NeighborhoodTab = "feed" | "map" | "chat" | "search";
@@ -62,30 +60,32 @@ function CityTab() {
   const loadSideData = useCallback(async () => {
     try {
       const [mastery, maint] = await Promise.all([
-        checkDistrictMastery("self"),
-        getMaintenanceStatus("self"),
+        checkDistrictMastery(),
+        getMaintenanceStatus(),
       ]);
       setDistrictMastery(mastery);
       setMaintenanceItems(maint);
     } catch { /* non-critical */ }
   }, []);
 
-  useEffect(() => {
-    loadSideData();
-    // Check passive income from first load
-    if (cityData?.gameState?.pendingPassiveIncome) {
-      setPassiveIncome(cityData.gameState.pendingPassiveIncome);
-    }
-  }, [cityData, loadSideData]);
+  const prevEraRef = useRef<EraType>(state.currentEra);
 
-  // Detect era transitions
   useEffect(() => {
-    const prev = state.currentEra;
-    if (era !== prev && era !== "pioneer") {
-      setEraJustUnlocked(era);
-      patch((s) => ({ ...s, currentEra: era }));
+    async function init() {
+      await loadSideData();
+      if (cityData?.gameState?.pendingPassiveIncome) {
+        setPassiveIncome(cityData.gameState.pendingPassiveIncome);
+      }
+      // Detect era transitions
+      if (era !== prevEraRef.current && era !== "pioneer") {
+        setEraJustUnlocked(era);
+        patch((s) => ({ ...s, currentEra: era }));
+      }
+      prevEraRef.current = era;
     }
-  }, [era, state.currentEra, patch]);
+    init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cityData, loadSideData]);
 
   function handleCityUpdate() {
     mutateCity();
@@ -249,7 +249,9 @@ function FeedSection({ userId }: { userId: string }) {
     setLoading(false);
   }
 
+  /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
   useEffect(() => { loadMore(); }, []);
+  /* eslint-enable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 
   async function handlePost(e: React.FormEvent) {
     e.preventDefault();

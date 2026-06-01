@@ -36,7 +36,6 @@ export async function applyHappinessDelta(userId: string, delta: number) {
 }
 
 export async function checkDailyHappiness(userId: string) {
-  const today = new Date().toISOString().slice(0, 10);
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yStr = yesterday.toISOString().slice(0, 10);
@@ -129,12 +128,6 @@ const PASSIVE_RATES: Record<string, { gold: number; energy: number }> = {
 };
 
 // ── Era progression ───────────────────────────────────────────────────────────
-
-const ERA_THRESHOLDS: Record<EraType, { buildings: number; streak?: number }> = {
-  pioneer:    { buildings: 0 },
-  modern:     { buildings: 10 },
-  metropolis: { buildings: 25, streak: 30 },
-};
 
 export async function checkEraProgression(userId: string): Promise<EraType | null> {
   const gs = await getOrCreateGameState(userId);

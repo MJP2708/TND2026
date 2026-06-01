@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Map, Timer, Building2, User } from "lucide-react";
+import { ActiveSessionBanner } from "@/components/game/ActiveSessionBanner";
 
 interface FVShellProps {
   children: React.ReactNode;
@@ -24,6 +25,8 @@ export function FVShell({ children, hideNav, className }: FVShellProps) {
   return (
     <div className="fv-shell">
       <main className={`fv-page ${className ?? ""}`}>
+        {/* Show active session banner on all pages except the focus timer itself */}
+        {pathname !== "/focus" && <ActiveSessionBanner />}
         {children}
       </main>
 

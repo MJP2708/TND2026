@@ -13,6 +13,7 @@ import {
   checkEraProgression,
 } from "./game-state";
 import { getHappinessMultiplier } from "@/lib/game-utils";
+import { calcNewStreak } from "@/lib/streak-utils";
 
 async function requireAuth() {
   const session = await auth();
@@ -74,14 +75,7 @@ export async function saveFocusSession(input: {
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) return { error: "User not found" };
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const newStreak =
-    user.lastActiveDate === today
-      ? user.streak
-      : user.lastActiveDate === yesterday.toISOString().slice(0, 10)
-      ? user.streak + 1
-      : 1;
+  const newStreak = calcNewStreak(user.lastActiveDate, user.streak);
 
   // Apply happiness multiplier to gold/energy rewards
   const happinessMultiplier = getHappinessMultiplier(user.happiness ?? 50);

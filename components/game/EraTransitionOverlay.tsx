@@ -31,7 +31,6 @@ const ERA_INFO: Record<EraType, { label: string; icon: string; desc: string; col
 
 export function EraTransitionOverlay({ era, onDismiss }: Props) {
   const [visible, setVisible] = useState(true);
-  const [confettiActive, setConfettiActive] = useState(true);
   const info = ERA_INFO[era];
 
   useEffect(() => {
@@ -62,7 +61,6 @@ export function EraTransitionOverlay({ era, onDismiss }: Props) {
         myConfetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
 
         const t2 = setTimeout(() => {
-          setConfettiActive(false);
           if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
         }, 3000);
 

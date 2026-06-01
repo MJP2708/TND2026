@@ -48,7 +48,7 @@ export default function PlanPage() {
   const [energy, setEnergy] = useState<EnergyLevel>("balanced");
   const [category, setCategory] = useState<GoalCategory>("study");
   const [generating, setGenerating] = useState(false);
-  const [previewTasks, setPreviewTasks] = useState(state.tasks);
+  const [, setPreviewTasks] = useState(state.tasks);
   const [showGoalMenu, setShowGoalMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -108,7 +108,6 @@ export default function PlanPage() {
   const totalTasks  = state.tasks.filter((t) => !t.isRecovery).length;
   const doneTasks   = state.tasks.filter((t) => t.status === "completed").length;
   const progress    = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
-  const totalHours  = Math.round(state.tasks.reduce((s, t) => s + t.minutes, 0) / 60);
   const grouped     = groupByCategory(state.tasks);
 
   if (!ready) {

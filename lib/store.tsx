@@ -63,6 +63,12 @@ export function AppStateProvider({ children, userId }: { children: React.ReactNo
       if (userId) {
         try {
           const res = await fetch("/api/user/state");
+          // Session expired — redirect to login, preserving return URL
+          if (res.status === 401) {
+            const returnTo = encodeURIComponent(window.location.pathname);
+            window.location.href = `/login?redirect=${returnTo}`;
+            return;
+          }
           if (res.ok) {
             const data = await res.json();
             const gs = data.gameState;

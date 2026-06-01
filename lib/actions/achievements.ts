@@ -59,7 +59,7 @@ export async function checkAchievements(userId: string) {
   const allDone = allTasks.length > 0 && allTasks.every((t) => t.status === "completed");
   if (!earned.has("plan_complete") && allDone) toUnlock.push("plan_complete");
 
-  if (toUnlock.length === 0) return;
+  if (toUnlock.length === 0) return [];
 
   const achievements = await db.achievement.findMany({ where: { key: { in: toUnlock } } });
 
@@ -85,6 +85,15 @@ export async function checkAchievements(userId: string) {
       },
     });
   }
+
+  // Return newly unlocked achievements so callers can show toast notifications
+  return achievements.map((a) => ({
+    key: a.key,
+    name: a.name,
+    icon: a.icon,
+    goldReward: a.goldReward,
+    xpReward: a.xpReward,
+  }));
 }
 
 export async function getUserAchievements(userId: string) {

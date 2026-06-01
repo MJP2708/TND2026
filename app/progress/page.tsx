@@ -84,10 +84,8 @@ export default function ProgressPage() {
   }
 
   const focusHrs    = (state.focusMinutes / 60).toFixed(1);
-  const totalTasks  = state.tasks.filter((t) => !t.isRecovery).length;
   const doneTasks   = state.tasks.filter((t) => t.status === "completed").length;
   const weekData    = buildWeekData(state.tasks);
-  const maxHours    = Math.max(...weekData.map((d) => d.hours));
 
   const thisWeekMins = weekData.reduce((s, d) => s + Math.round(d.hours * 60), 0);
   const lastWeekStart = new Date();

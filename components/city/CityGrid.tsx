@@ -27,7 +27,7 @@ const GRID_ROWS = 8;
 
 type Mode = "view" | "place" | "move";
 
-export function CityGrid({ buildings, onUpdate, gold }: Props) {
+export function CityGrid({ buildings, onUpdate }: Props) {
   const [selected, setSelected] = useState<PlacedBuilding | null>(null);
   const [toPlace, setToPlace] = useState<PlacedBuilding | null>(null);
   const [mode, setMode] = useState<Mode>("view");
