@@ -6,6 +6,7 @@ import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
 import { Bell, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import { fvToast } from "@/lib/toast";
+import { useTranslations } from "next-intl";
 import { completeTask as completeTaskDB } from "@/lib/actions/tasks";
 import { QuestPanel } from "@/components/game/QuestPanel";
 import { CompanionCard } from "@/components/game/CompanionCard";
@@ -17,12 +18,13 @@ import type { DailyEvent } from "@/lib/types";
 
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 
-function greeting() {
+// greeting keys match dashboard translation namespace
+function greetingKey() {
   const h = new Date().getHours();
-  if (h < 6)  return "Still up";
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  if (h < 6)  return "still_up";
+  if (h < 12) return "greeting_morning";
+  if (h < 18) return "greeting_afternoon";
+  return "greeting_evening";
 }
 
 function greetingEmoji() {
@@ -44,13 +46,15 @@ const TASK_CATEGORY_COLORS: Record<string, string> = {
 
 export default function DashboardPage() {
   const { state, patch, ready } = useStore();
+  const t = useTranslations("dashboard");
+  const tc = useTranslations("common");
 
   if (!ready) {
     return (
       <FVShell>
         <div className="fv-loading">
           <Mascot size={60} mood="idle" float />
-          <p style={{ color: "#6B7A99", fontSize: "0.85rem" }}>Getting ready…</p>
+          <p style={{ color: "#6B7A99", fontSize: "0.85rem" }}>{tc("loading")}</p>
         </div>
       </FVShell>
     );
@@ -150,12 +154,12 @@ export default function DashboardPage() {
           <div className="row gap-12">
             <div>
               <p style={{ margin: "0 0 2px", fontSize: "1.1rem", fontWeight: 900, color: "#1D2B53" }}>
-                {greeting()}, {state.displayName} {greetingEmoji()}
+                {t(greetingKey() as Parameters<typeof t>[0])}, {state.displayName} {greetingEmoji()}
               </p>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {state.streak > 0 && (
                   <div className="fv-streak" style={{ display: "inline-flex" }}>
-                    🔥 {state.streak} day streak
+                    🔥 {t("streak", { count: state.streak })}
                   </div>
                 )}
                 <div style={{
@@ -169,8 +173,7 @@ export default function DashboardPage() {
                   alignItems: "center",
                   gap: 3,
                 }}>
-                  {state.currentEra === "pioneer" ? "🪨" : state.currentEra === "modern" ? "🏙" : "🌆"}
-                  {state.currentEra === "pioneer" ? " Pioneer" : state.currentEra === "modern" ? " Modern" : " Metropolis"}
+                  {t((`era_${state.currentEra}`) as Parameters<typeof t>[0])}
                 </div>
               </div>
             </div>
@@ -230,7 +233,7 @@ export default function DashboardPage() {
           {state.goal ? (
             <div className="fv-card fv-card-blue animate-fade-up" style={{ marginBottom: 14 }}>
               <div className="row between" style={{ marginBottom: 6 }}>
-                <p style={{ margin: 0, fontSize: "0.7rem", fontWeight: 700, opacity: 0.85 }}>Goal Progress</p>
+                <p style={{ margin: 0, fontSize: "0.7rem", fontWeight: 700, opacity: 0.85 }}>{t("goal_progress")}</p>
                 <span style={{ fontSize: "1.1rem", fontWeight: 900 }}>{planProgress}%</span>
               </div>
               <div style={{ height: 8, background: "rgba(255,255,255,0.25)", borderRadius: 999, overflow: "hidden", marginBottom: 6 }}>
@@ -247,7 +250,7 @@ export default function DashboardPage() {
                   {doneTasks} / {totalTasks} tasks done · {focusHrs}h focus
                 </p>
                 <Link href="/plan" style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.73rem", fontWeight: 700 }}>
-                  View plan →
+                  {t("view_plan")}
                 </Link>
               </div>
             </div>
@@ -255,8 +258,8 @@ export default function DashboardPage() {
             <Link href="/plan" style={{ display: "block", marginBottom: 14 }}>
               <div className="fv-card" style={{ textAlign: "center", borderStyle: "dashed" }}>
                 <Mascot size={40} mood="thinking" />
-                <p style={{ margin: "8px 0 4px", fontWeight: 800, color: "#1D2B53" }}>Set your first goal</p>
-                <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.82rem" }}>Let AI build your study plan</p>
+                <p style={{ margin: "8px 0 4px", fontWeight: 800, color: "#1D2B53" }}>{t("set_first_goal")}</p>
+                <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.82rem" }}>{t("ai_plan")}</p>
               </div>
             </Link>
           )}
@@ -265,9 +268,9 @@ export default function DashboardPage() {
           <div className="fv-card animate-fade-up delay-1" style={{ marginBottom: 14 }}>
             <div className="row between" style={{ marginBottom: 12 }}>
               <div>
-                <p style={{ margin: 0, fontWeight: 800, fontSize: "0.88rem", color: "#1D2B53" }}>Today&apos;s Plan</p>
+                <p style={{ margin: 0, fontWeight: 800, fontSize: "0.88rem", color: "#1D2B53" }}>{t("tasks_today")}</p>
                 <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "#6B7A99" }}>
-                  {todayDone} / {todayTasks.length} tasks
+                  {t("tasks_done", { done: todayDone, total: todayTasks.length })}
                 </p>
               </div>
               <Link href="/plan" style={{ color: "#5EA9FF" }}>
@@ -279,7 +282,7 @@ export default function DashboardPage() {
               <div style={{ textAlign: "center", padding: "16px 0" }}>
                 <Mascot size={48} mood="celebrate" />
                 <p style={{ margin: "8px 0 0", fontWeight: 700, color: "#1D2B53", fontSize: "0.88rem" }}>
-                  All done for today!
+                  {t("all_done")}
                 </p>
               </div>
             ) : (
@@ -340,19 +343,19 @@ export default function DashboardPage() {
             <div className="fv-stat">
               <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>⏱</div>
               <div className="fv-stat-value">{focusHrs}h</div>
-              <div className="fv-stat-label">Focus time</div>
+              <div className="fv-stat-label">{t("focus_hours")}</div>
             </div>
             <div className="fv-stat">
               <div style={{ fontSize: "1.2rem", marginBottom: 4 }}>⚡</div>
               <div className="fv-stat-value">{state.energy}</div>
-              <div className="fv-stat-label">Energy</div>
+              <div className="fv-stat-label">{tc("energy")}</div>
             </div>
           </div>
 
           {/* ── Quick actions ── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }} className="animate-fade-up delay-3">
             <Link href="/focus" className="fv-btn fv-btn-primary fv-btn-full" style={{ height: 52, borderRadius: 16 }}>
-              ▶ Start Focus
+              {t("start_focus")}
             </Link>
             <Link href="/community" className="fv-btn fv-btn-secondary fv-btn-full" style={{ height: 52, borderRadius: 16 }}>
               🏙 My City

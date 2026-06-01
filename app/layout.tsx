@@ -1,14 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Poppins, Sarabun } from "next/font/google";
 import { AppStateProvider } from "@/lib/store";
 import { auth } from "@/auth";
 import { Toaster } from "sonner";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, getLocale } from "next-intl/server";
 import "./globals.css";
 
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
   variable: "--font-poppins",
+  display: "swap",
+});
+
+const sarabun = Sarabun({
+  subsets: ["thai", "latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  variable: "--font-sarabun",
   display: "swap",
 });
 
@@ -35,25 +44,31 @@ export default async function RootLayout({
   const session = await auth();
   const userId = session?.user?.id ?? null;
 
+  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+
   return (
-    <html lang="en" className={poppins.variable}>
-      <body style={{ fontFamily: "var(--font-poppins, Poppins, system-ui, sans-serif)" }}>
-        <AppStateProvider userId={userId}>
-          {children}
-          <Toaster
-            position="bottom-center"
-            offset={80}
-            toastOptions={{
-              style: {
-                fontFamily: "var(--font-poppins, Poppins, system-ui, sans-serif)",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                borderRadius: 14,
-                maxWidth: "90vw",
-              },
-            }}
-          />
-        </AppStateProvider>
+    <html lang={locale} className={`${poppins.variable} ${sarabun.variable}`}>
+      <body style={{ fontFamily: locale === "th" ? "var(--font-sarabun, Sarabun, Poppins, system-ui, sans-serif)" : "var(--font-poppins, Poppins, system-ui, sans-serif)" }}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <AppStateProvider userId={userId}>
+            {children}
+            <Toaster
+              position="bottom-center"
+              offset={80}
+              toastOptions={{
+                style: {
+                  fontFamily: locale === "th"
+                    ? "var(--font-sarabun, Sarabun, system-ui, sans-serif)"
+                    : "var(--font-poppins, Poppins, system-ui, sans-serif)",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  borderRadius: 14,
+                  maxWidth: "90vw",
+                },
+              }}
+            />
+          </AppStateProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

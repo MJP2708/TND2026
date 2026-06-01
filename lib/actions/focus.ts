@@ -14,6 +14,7 @@ import {
 } from "./game-state";
 import { getHappinessMultiplier } from "@/lib/game-utils";
 import { calcNewStreak } from "@/lib/streak-utils";
+import { rateLimit } from "@/lib/rate-limit";
 
 async function requireAuth() {
   const session = await auth();
@@ -47,6 +48,7 @@ export async function saveFocusSession(input: {
   const userId = await requireAuth();
   const parsed = SessionSchema.safeParse(input);
   if (!parsed.success) return { error: "Invalid input" };
+  if (!rateLimit.focusSave(userId)) return { error: "Too many requests — slow down" };
 
   const { taskId, minutes, completion, goldEarned, xpEarned } = parsed.data;
 

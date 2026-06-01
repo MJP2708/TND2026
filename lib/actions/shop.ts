@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
 import { checkEraProgression, applyHappinessDelta } from "./game-state";
+import { rateLimit } from "@/lib/rate-limit";
 import type { EraType, DistrictType } from "@/lib/types";
 
 async function requireAuth() {
@@ -71,6 +72,8 @@ export const MAINTENANCE_COST_BY_TIER: Record<number, number> = { 1: 15, 2: 25, 
 
 export async function buyItem(itemId: string) {
   const userId = await requireAuth();
+
+  if (!rateLimit.purchase(userId)) return { error: "Too many purchases — slow down" };
 
   const item = ITEM_CATALOG[itemId];
   if (!item) return { error: "Item not found" };

@@ -13,6 +13,7 @@ import {
 } from "./game-state";
 import { getHappinessMultiplier } from "@/lib/game-utils";
 import { calcNewStreak } from "@/lib/streak-utils";
+import { rateLimit } from "@/lib/rate-limit";
 
 async function requireAuth() {
   const session = await auth();
@@ -87,6 +88,8 @@ export async function savePlan(tasks: {
 
 export async function completeTask(taskId: string) {
   const userId = await requireAuth();
+
+  if (!rateLimit.generic(userId)) return { error: "Too many requests — slow down" };
 
   const task = await db.task.findFirst({ where: { id: taskId, userId } });
   if (!task) return { error: "Task not found" };

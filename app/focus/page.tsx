@@ -9,6 +9,7 @@ import { calcReward } from "@/lib/ai-planner";
 import { RotateCcw, Pause, Play, ChevronDown, ChevronLeft, CheckCircle2 } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { saveFocusSession } from "@/lib/actions/focus";
+import { useTranslations } from "next-intl";
 
 type Phase = "idle" | "running" | "paused" | "done";
 
@@ -64,6 +65,7 @@ function FocusPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlTaskId = searchParams.get("taskId") ?? "";
+  const t = useTranslations("focus");
 
   const TIMER_KEY = "tf:focus:timer";
 
@@ -72,6 +74,7 @@ function FocusPageInner() {
   const [elapsed, setElapsed]       = useState(0);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showSelector, setShowSelector]   = useState(false);
+  const [sessionGoal, setSessionGoal]     = useState("");
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const restoredRef = useRef(false);
 
@@ -253,19 +256,19 @@ function FocusPageInner() {
             <div className="fv-card" style={{ textAlign: "center" }}>
               <div style={{ fontSize: "1.4rem" }}>🪙</div>
               <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#C17D00", margin: "4px 0 0" }}>+{reward.gold}</div>
-              <div style={{ fontSize: "0.68rem", color: "#6B7A99", fontWeight: 600 }}>Gold</div>
+              <div style={{ fontSize: "0.68rem", color: "#6B7A99", fontWeight: 600 }}>{t("coins_earned")}</div>
             </div>
             <div className="fv-card" style={{ textAlign: "center" }}>
               <div style={{ fontSize: "1.4rem" }}>💎</div>
               <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#6366F1", margin: "4px 0 0" }}>+{reward.xp}</div>
-              <div style={{ fontSize: "0.68rem", color: "#6B7A99", fontWeight: 600 }}>XP</div>
+              <div style={{ fontSize: "0.68rem", color: "#6B7A99", fontWeight: 600 }}>{t("xp_earned")}</div>
             </div>
             <div className="fv-card" style={{ textAlign: "center" }}>
               <div style={{ fontSize: "1.4rem" }}>🔥</div>
               <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#FF7B7B", margin: "4px 0 0" }}>
                 {state.streak}
               </div>
-              <div style={{ fontSize: "0.68rem", color: "#6B7A99", fontWeight: 600 }}>Streak days</div>
+              <div style={{ fontSize: "0.68rem", color: "#6B7A99", fontWeight: 600 }}>{t("streak_days")}</div>
             </div>
           </div>
 
@@ -274,13 +277,13 @@ function FocusPageInner() {
               className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg"
               onClick={resetSession}
             >
-              Awesome! Start Next Task
+              {t("awesome")}
             </button>
             <button
               className="fv-btn fv-btn-ghost fv-btn-full"
               onClick={() => router.push("/plan")}
             >
-              <ChevronLeft size={16} /> Back to Plan
+              <ChevronLeft size={16} /> {t("back_plan")}
             </button>
           </div>
         </div>
@@ -482,12 +485,27 @@ function FocusPageInner() {
           </div>
         )}
 
+        {/* Session goal input — only shown in idle */}
+        {phase === "idle" && (
+          <div style={{ marginBottom: 12 }}>
+            <input
+              type="text"
+              className="fv-input"
+              placeholder={t("goal_placeholder")}
+              value={sessionGoal}
+              onChange={(e) => setSessionGoal(e.target.value)}
+              maxLength={80}
+              style={{ fontSize: "0.82rem" }}
+            />
+          </div>
+        )}
+
         {/* Controls */}
         <div style={{ display: "grid", gap: 10 }}>
           {phase === "idle" && (
             <button className="fv-btn fv-btn-primary fv-btn-full fv-btn-lg" onClick={startTimer}>
               <Play size={20} fill="white" />
-              Start Focus Session
+              {t("start")}
             </button>
           )}
 
@@ -495,10 +513,10 @@ function FocusPageInner() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <button className="fv-btn fv-btn-secondary fv-btn-full" style={{ height: 52 }} onClick={pauseTimer}>
                 <Pause size={18} />
-                Pause
+                {t("pause")}
               </button>
               <button className="fv-btn fv-btn-primary fv-btn-full" style={{ height: 52 }} onClick={() => finishSession(100)}>
-                ✓ Complete Task
+                {t("complete_task")}
               </button>
             </div>
           )}
@@ -509,11 +527,11 @@ function FocusPageInner() {
                 <RotateCcw size={18} />
               </button>
               <button className="fv-btn fv-btn-secondary fv-btn-full" style={{ height: 52 }} onClick={() => finishSession(Math.round((elapsed / totalSecs) * 100))}>
-                Save & exit
+                {t("save_exit")}
               </button>
               <button className="fv-btn fv-btn-primary fv-btn-full" style={{ height: 52 }} onClick={resumeTimer}>
                 <Play size={18} fill="white" />
-                Resume
+                {t("resume")}
               </button>
             </div>
           )}
@@ -531,7 +549,7 @@ function FocusPageInner() {
               onClick={() => finishSession(100)}
               style={{ height: 44 }}
             >
-              <CheckCircle2 size={16} /> Mark as Complete
+              <CheckCircle2 size={16} /> {t("complete_task")}
             </button>
           )}
         </div>
@@ -539,7 +557,7 @@ function FocusPageInner() {
         {/* Elapsed */}
         {(phase === "running" || phase === "paused") && (
           <div style={{ textAlign: "center", marginTop: 12, color: "#6B7A99", fontSize: "0.78rem", fontWeight: 600 }}>
-            Focus time: {fmt(elapsed)} · Session Gold: 🪙 {Math.round(previewReward.gold * (elapsed / totalSecs))}
+            {t("focus_time")} {fmt(elapsed)} · {t("session_gold")} 🪙 {Math.round(previewReward.gold * (elapsed / totalSecs))}
           </div>
         )}
       </div>
