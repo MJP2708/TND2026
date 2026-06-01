@@ -78,23 +78,21 @@ export async function buyItem(itemId: string) {
   const item = ITEM_CATALOG[itemId];
   if (!item) return { error: "Item not found" };
 
-  const user = await db.user.findUnique({ where: { id: userId } });
+  // Pre-flight checks (outside transaction for speed)
+  const [user, gs] = await Promise.all([
+    db.user.findUnique({ where: { id: userId } }),
+    db.gameState.findUnique({ where: { userId } }),
+  ]);
   if (!user) return { error: "User not found" };
 
-  const gs = await db.gameState.findUnique({ where: { userId } });
-  const currentEra = (gs?.currentEra ?? "pioneer") as EraType;
   const ERA_ORDER: EraType[] = ["pioneer", "modern", "metropolis"];
-  const itemEraIdx = ERA_ORDER.indexOf(item.era);
-  const userEraIdx = ERA_ORDER.indexOf(currentEra);
-
-  if (itemEraIdx > userEraIdx) {
+  const currentEra = (gs?.currentEra ?? "pioneer") as EraType;
+  if (ERA_ORDER.indexOf(item.era) > ERA_ORDER.indexOf(currentEra)) {
     return { error: `Unlocks in ${item.era === "modern" ? "Modern City" : "Metropolis"} era` };
   }
 
-  // Apply construction discount if active
   const hasDiscount = gs?.constructionDiscount ?? false;
   const discountFactor = hasDiscount ? 0.5 : 1.0;
-
   const requiredEnergy = Math.ceil(item.energyCost * discountFactor);
   const requiredGold = Math.ceil(item.goldCost * discountFactor);
 
@@ -105,72 +103,84 @@ export async function buyItem(itemId: string) {
     return { error: "Not enough Gold 🪙", needed: requiredGold, have: user.gold };
   }
 
-  await db.user.update({
-    where: { id: userId },
-    data: {
-      energy: { decrement: requiredEnergy },
-      gold: { decrement: requiredGold },
-    },
-  });
+  // Atomic: deduct currency + create purchase + place building
+  let purchaseId = "";
+  try {
+    const result = await db.$transaction(async (tx) => {
+      // Re-check balances inside transaction to prevent race conditions
+      const freshUser = await tx.user.findUnique({ where: { id: userId }, select: { gold: true, energy: true } });
+      if (!freshUser || freshUser.gold < requiredGold || freshUser.energy < requiredEnergy) {
+        throw new Error("Insufficient funds");
+      }
 
-  const purchase = await db.purchase.create({
-    data: { userId, itemId, itemName: item.name, category: item.category, cost: requiredGold },
-  });
+      await tx.user.update({
+        where: { id: userId },
+        data: { energy: { decrement: requiredEnergy }, gold: { decrement: requiredGold } },
+      });
 
+      const purchase = await tx.purchase.create({
+        data: { userId, itemId, itemName: item.name, category: item.category, cost: requiredGold },
+      });
+
+      if (item.isBuilding) {
+        const city = await tx.city.upsert({ where: { userId }, create: { userId }, update: {} });
+        const nextMaintenance = new Date();
+        nextMaintenance.setDate(nextMaintenance.getDate() + 7);
+        await tx.placedBuilding.create({
+          data: {
+            cityId: city.id,
+            itemId,
+            name: item.name,
+            icon: item.icon,
+            category: item.category,
+            district: item.district,
+            tier: item.tier,
+            health: "healthy",
+            maintenanceDue: nextMaintenance,
+            citizens: item.district === "residential" ? 5 : 0,
+            x: -1,
+            y: -1,
+          },
+        });
+
+        const totalBuilt = (gs?.totalBuilt ?? 0) + 1;
+        await tx.gameState.upsert({
+          where: { userId },
+          create: { userId, totalBuilt, constructionDiscount: false },
+          update: { totalBuilt, constructionDiscount: false },
+        });
+      } else if (hasDiscount) {
+        // Clear discount even for non-building purchases if it was active
+        await tx.gameState.upsert({
+          where: { userId },
+          create: { userId, constructionDiscount: false },
+          update: { constructionDiscount: false },
+        });
+      }
+
+      return purchase;
+    });
+    purchaseId = result.id;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Purchase failed";
+    return { error: msg };
+  }
+
+  // Non-critical side effects — run after successful transaction
   if (item.isBuilding) {
-    const city = await db.city.upsert({ where: { userId }, create: { userId }, update: {} });
-    const nextMaintenance = new Date();
-    nextMaintenance.setDate(nextMaintenance.getDate() + 7);
-
-    await db.placedBuilding.create({
-      data: {
-        cityId: city.id,
-        itemId,
-        name: item.name,
-        icon: item.icon,
-        category: item.category,
-        district: item.district,
-        tier: item.tier,
-        health: "healthy",
-        maintenanceDue: nextMaintenance,
-        citizens: item.district === "residential" ? 5 : 0,
-        x: -1,
-        y: -1,
-      },
-    });
-
-    // Increment totalBuilt and check era progression
-    const totalBuilt = (gs?.totalBuilt ?? 0) + 1;
-    await db.gameState.upsert({
-      where: { userId },
-      create: { userId, totalBuilt, constructionDiscount: false },
-      update: { totalBuilt, constructionDiscount: false },
-    });
-
-    // Happiness +3 for decorations
     if (item.category === "Decor" || item.district === "green") {
-      await applyHappinessDelta(userId, 3);
+      await applyHappinessDelta(userId, 3).catch(() => {});
     }
-
-    await checkEraProgression(userId);
+    await checkEraProgression(userId).catch(() => {});
   }
+  await checkAchievements(userId).catch(() => {});
 
-  // Clear construction discount after use
-  if (hasDiscount) {
-    await db.gameState.upsert({
-      where: { userId },
-      create: { userId, constructionDiscount: false },
-      update: { constructionDiscount: false },
-    });
-  }
-
-  await checkAchievements(userId);
   revalidatePath("/rewards");
   revalidatePath("/community");
 
   return {
     success: true,
-    purchaseId: purchase.id,
+    purchaseId,
     newGold: user.gold - requiredGold,
     newEnergy: user.energy - requiredEnergy,
   };

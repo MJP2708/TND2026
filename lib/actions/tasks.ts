@@ -91,58 +91,61 @@ export async function completeTask(taskId: string) {
 
   if (!rateLimit.generic(userId)) return { error: "Too many requests — slow down" };
 
-  const task = await db.task.findFirst({ where: { id: taskId, userId } });
-  if (!task) return { error: "Task not found" };
-  if (task.status === "completed") return { error: "Already completed" };
-
   const today = new Date().toISOString().slice(0, 10);
 
-  await db.task.update({
-    where: { id: taskId },
-    data: {
-      status: "completed",
-      completion: 100,
-      focusMinutes: task.minutes,
-      updatedAt: new Date(),
-    },
-  });
+  let finalGold = 0;
+  let taskXp = 0;
+  let newStreak = 0;
+  let oldStreak = 0;
 
-  const user = await db.user.findUnique({ where: { id: userId } });
-  if (!user) return { error: "User not found" };
+  try {
+    const result = await db.$transaction(async (tx) => {
+      const task = await tx.task.findFirst({ where: { id: taskId, userId } });
+      if (!task) throw new Error("Task not found");
+      if (task.status === "completed") throw new Error("Already completed");
 
-  const newStreak = calcNewStreak(user.lastActiveDate, user.streak);
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new Error("User not found");
 
-  // Apply happiness multiplier to gold reward
-  const happinessMultiplier = getHappinessMultiplier(user.happiness ?? 50);
-  const baseGold = goldByPriority(task.difficulty);
-  const finalGold = Math.floor((task.gold + baseGold) * happinessMultiplier);
+      const streak = calcNewStreak(user.lastActiveDate, user.streak);
+      const happinessMultiplier = getHappinessMultiplier(user.happiness ?? 50);
+      const baseGold = goldByPriority(task.difficulty);
+      const gold = Math.floor((task.gold + baseGold) * happinessMultiplier);
 
-  await db.user.update({
-    where: { id: userId },
-    data: {
-      gold: { increment: finalGold },
-      xp: { increment: task.xp },
-      focusMinutes: { increment: task.minutes },
-      streak: newStreak,
-      lastActiveDate: today,
-    },
-  });
+      await tx.task.update({
+        where: { id: taskId },
+        data: { status: "completed", completion: 100, focusMinutes: task.minutes, updatedAt: new Date() },
+      });
 
-  // Check if 3+ tasks completed today → +5 happiness
-  const todayDone = await db.task.count({
-    where: { userId, day: today, status: "completed" },
-  });
-  if (todayDone >= 3) {
-    await applyHappinessDelta(userId, 5);
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          gold: { increment: gold },
+          xp: { increment: task.xp },
+          focusMinutes: { increment: task.minutes },
+          streak,
+          lastActiveDate: today,
+        },
+      });
+
+      return { gold, xp: task.xp, streak, oldStreak: user.streak };
+    });
+
+    finalGold = result.gold;
+    taskXp = result.xp;
+    newStreak = result.streak;
+    oldStreak = result.oldStreak;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed" };
   }
 
-  // Streak milestone rewards
-  if (newStreak !== user.streak) {
-    await applyStreakMilestoneReward(userId, newStreak);
-  }
+  // Non-critical side effects after successful transaction
+  const todayDone = await db.task.count({ where: { userId, day: today, status: "completed" } });
+  if (todayDone >= 3) await applyHappinessDelta(userId, 5).catch(() => {});
+  if (newStreak !== oldStreak) await applyStreakMilestoneReward(userId, newStreak).catch(() => {});
 
-  await checkAchievements(userId);
-  await checkEraProgression(userId);
+  await checkAchievements(userId).catch(() => {});
+  await checkEraProgression(userId).catch(() => {});
 
   try {
     await updateQuestProgress("complete_1_task", 1, userId);
@@ -153,7 +156,7 @@ export async function completeTask(taskId: string) {
   revalidatePath("/plan");
   revalidatePath("/dashboard");
 
-  return { gold: finalGold, xp: task.xp, streak: newStreak };
+  return { gold: finalGold, xp: taskXp, streak: newStreak };
 }
 
 export async function loadUserPlan() {
