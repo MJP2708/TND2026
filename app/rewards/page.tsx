@@ -77,7 +77,9 @@ export default function ShopPage() {
   const currentEra = state.currentEra;
 
   function buyItem(itemId: string, goldCost: number, energyCost: number, itemName: string) {
-    if (optimisticOwned.has(itemId) || isPending) return;
+    // Upgrades are one-time purchases; buildings can be bought multiple times
+    const isUpgrade = tab === "Upgrades";
+    if ((isUpgrade && optimisticOwned.has(itemId)) || isPending) return;
 
     if (state.gold < goldCost) {
       fvToast.error(`Need ${goldCost} 🪙 but you have ${state.gold} 🪙`);
@@ -89,26 +91,26 @@ export default function ShopPage() {
     }
 
     setBuyingId(itemId);
-    addOptimisticOwned(itemId);
+    if (isUpgrade) addOptimisticOwned(itemId);
 
-    // Optimistic client state update — feels instant
     patch((s) => ({
       ...s,
       gold: s.gold - goldCost,
       energy: s.energy - energyCost,
-      purchasedItems: [...(s.purchasedItems ?? []), itemId],
+      purchasedItems: isUpgrade ? [...(s.purchasedItems ?? []), itemId] : s.purchasedItems,
     }));
 
     startTransition(async () => {
       try {
         const result = await buyItemAction(itemId);
         if ("error" in result && result.error) {
-          // Rollback optimistic update
           patch((s) => ({
             ...s,
             gold: s.gold + goldCost,
             energy: s.energy + energyCost,
-            purchasedItems: (s.purchasedItems ?? []).filter((id) => id !== itemId),
+            purchasedItems: isUpgrade
+              ? (s.purchasedItems ?? []).filter((id) => id !== itemId)
+              : s.purchasedItems,
           }));
           fvToast.error(result.error);
         } else {
@@ -119,7 +121,9 @@ export default function ShopPage() {
           ...s,
           gold: s.gold + goldCost,
           energy: s.energy + energyCost,
-          purchasedItems: (s.purchasedItems ?? []).filter((id) => id !== itemId),
+          purchasedItems: isUpgrade
+            ? (s.purchasedItems ?? []).filter((id) => id !== itemId)
+            : s.purchasedItems,
         }));
         fvToast.error("Purchase failed — please try again");
       } finally {
@@ -168,7 +172,7 @@ export default function ShopPage() {
         <div style={{ padding: "16px 20px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
             {items.map((item, idx) => {
-              const owned       = optimisticOwned.has(item.id);
+              const owned       = tab === "Upgrades" && optimisticOwned.has(item.id);
               const itemEraIdx  = ERA_ORDER.indexOf(item.era);
               const isLocked    = itemEraIdx > userEraIdx;
               const canAfford   = state.gold >= item.goldCost && state.energy >= item.energyCost;

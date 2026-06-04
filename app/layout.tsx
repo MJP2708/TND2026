@@ -4,7 +4,7 @@ import { AppStateProvider } from "@/lib/store";
 import { auth } from "@/auth";
 import { Toaster } from "sonner";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages, getLocale } from "next-intl/server";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -44,7 +44,10 @@ export default async function RootLayout({
   const session = await auth();
   const userId = session?.user?.id ?? null;
 
-  const [locale, messages] = await Promise.all([getLocale(), getMessages()]);
+  const cookieStore = await cookies();
+  const rawLocale = cookieStore.get("locale")?.value ?? "en";
+  const locale = (["en", "th"].includes(rawLocale) ? rawLocale : "en") as "en" | "th";
+  const messages = (await import(`../messages/${locale}.json`)).default;
 
   return (
     <html lang={locale} className={`${poppins.variable} ${sarabun.variable}`}>
