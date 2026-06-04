@@ -3,7 +3,7 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
-export const DAILY_QUEST_DEFS = [
+const DAILY_QUEST_DEFS = [
   { key: "complete_1_task",  title: "First Task",     description: "Complete 1 task today",              icon: "✅", goldReward: 30,  xpReward: 15, target: 1  },
   { key: "complete_3_tasks", title: "Task Trio",       description: "Complete 3 tasks today",             icon: "🎯", goldReward: 75,  xpReward: 40, target: 3  },
   { key: "focus_25min",      title: "Focus Starter",  description: "Accumulate 25 focus minutes",        icon: "⏱", goldReward: 50,  xpReward: 25, target: 25 },

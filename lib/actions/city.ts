@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
-import { ITEM_CATALOG } from "./shop";
+import { ITEM_CATALOG } from "@/lib/item-catalog";
 import type { DistrictType } from "@/lib/types";
 
 const SELL_REFUND_RATE = 0.5;
