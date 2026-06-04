@@ -5,6 +5,8 @@ import { auth } from "@/auth";
 import { Toaster } from "sonner";
 import { NextIntlClientProvider } from "next-intl";
 import { cookies } from "next/headers";
+import messagesEn from "../messages/en.json";
+import messagesTh from "../messages/th.json";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -47,7 +49,7 @@ export default async function RootLayout({
   const cookieStore = await cookies();
   const rawLocale = cookieStore.get("locale")?.value ?? "en";
   const locale = (["en", "th"].includes(rawLocale) ? rawLocale : "en") as "en" | "th";
-  const messages = (await import(`../messages/${locale}.json`)).default;
+  const messages = locale === "th" ? messagesTh : messagesEn;
 
   return (
     <html lang={locale} className={`${poppins.variable} ${sarabun.variable}`}>
