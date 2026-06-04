@@ -75,11 +75,13 @@ export function DistrictGrid({ buildings, onUpdate, districtMastery }: Props) {
     if (mode === "place" && toPlace) {
       if (occupant) { showToast("Slot already occupied!"); return; }
       startTransition(async () => {
-        const result = await placeBuilding({ buildingId: toPlace.id, x, y, district });
-        if ("error" in result && result.error) { showToast(result.error); return; }
-        setToPlace(null);
-        setMode("view");
-        onUpdate();
+        try {
+          const result = await placeBuilding({ buildingId: toPlace.id, x, y, district });
+          if ("error" in result && result.error) { showToast(result.error); return; }
+          setToPlace(null);
+          setMode("view");
+          onUpdate();
+        } catch { showToast("Failed — please try again"); }
       });
       return;
     }
@@ -88,11 +90,13 @@ export function DistrictGrid({ buildings, onUpdate, districtMastery }: Props) {
       if (occupant && occupant.id !== selected.id) { showToast("Slot already occupied!"); return; }
       if (occupant?.id === selected.id) return;
       startTransition(async () => {
-        const result = await moveBuilding({ buildingId: selected.id, x, y, district });
-        if ("error" in result && result.error) { showToast(result.error); return; }
-        setSelected(null);
-        setMode("view");
-        onUpdate();
+        try {
+          const result = await moveBuilding({ buildingId: selected.id, x, y, district });
+          if ("error" in result && result.error) { showToast(result.error); return; }
+          setSelected(null);
+          setMode("view");
+          onUpdate();
+        } catch { showToast("Failed — please try again"); }
       });
       return;
     }
@@ -126,33 +130,39 @@ export function DistrictGrid({ buildings, onUpdate, districtMastery }: Props) {
   function handleSell() {
     if (!selected) return;
     startTransition(async () => {
-      const result = await sellBuilding(selected.id);
-      if ("error" in result && result.error) { showToast(result.error); return; }
-      showToast(`Sold! +${"refund" in result ? result.refund : 0}🪙 refunded`);
-      setSelected(null);
-      setMode("view");
-      onUpdate();
+      try {
+        const result = await sellBuilding(selected.id);
+        if ("error" in result && result.error) { showToast(result.error); return; }
+        showToast(`Sold! +${"refund" in result ? result.refund : 0}🪙 refunded`);
+        setSelected(null);
+        setMode("view");
+        onUpdate();
+      } catch { showToast("Failed — please try again"); }
     });
   }
 
   function handleUpgrade() {
     if (!selected) return;
     startTransition(async () => {
-      const result = await upgradeBuilding(selected.id);
-      if ("error" in result && result.error) { showToast(result.error ?? "Failed"); return; }
-      showToast(`Upgraded to Level ${selected.level + 1}! 🎉`);
-      setSelected({ ...selected, level: selected.level + 1 });
-      onUpdate();
+      try {
+        const result = await upgradeBuilding(selected.id);
+        if ("error" in result && result.error) { showToast(result.error ?? "Failed"); return; }
+        showToast(`Upgraded to Level ${selected.level + 1}! 🎉`);
+        setSelected({ ...selected, level: selected.level + 1 });
+        onUpdate();
+      } catch { showToast("Failed — please try again"); }
     });
   }
 
   function handleRotate() {
     if (!selected) return;
     startTransition(async () => {
-      const result = await rotatBuilding(selected.id);
-      if ("error" in result && result.error) { showToast(result.error); return; }
-      setSelected({ ...selected, rotation: "rotation" in result ? (result.rotation ?? 0) : 0 });
-      onUpdate();
+      try {
+        const result = await rotatBuilding(selected.id);
+        if ("error" in result && result.error) { showToast(result.error); return; }
+        setSelected({ ...selected, rotation: "rotation" in result ? (result.rotation ?? 0) : 0 });
+        onUpdate();
+      } catch { showToast("Failed — please try again"); }
     });
   }
 

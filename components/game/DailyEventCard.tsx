@@ -21,20 +21,24 @@ export function DailyEventCard({ event, onResolved }: Props) {
     if (chosen !== null || isPending) return;
     setChosen(idx);
     startTransition(async () => {
-      const result = await resolveEvent(idx);
-      if (result.success) {
-        const e = result.effect;
-        const parts: string[] = [];
-        if (e.gold && e.gold > 0)  parts.push(`+${e.gold}🪙`);
-        if (e.gold && e.gold < 0)  parts.push(`${e.gold}🪙`);
-        if (e.energy && e.energy > 0) parts.push(`+${e.energy}⚡`);
-        if (e.happiness && e.happiness > 0) parts.push(`+${e.happiness} happiness`);
-        if (e.happiness && e.happiness < 0) parts.push(`${e.happiness} happiness`);
-        if (e.constructionDiscount) parts.push("50% build discount active!");
-        if (e.specialCitizen) parts.push(`${e.specialCitizen} citizen gained!`);
-        setFeedback(parts.length > 0 ? parts.join(" · ") : "Done!");
-        onResolved(e as Record<string, unknown>);
-        setTimeout(() => setDismissed(true), 2200);
+      try {
+        const result = await resolveEvent(idx);
+        if (result.success) {
+          const e = result.effect;
+          const parts: string[] = [];
+          if (e.gold && e.gold > 0)  parts.push(`+${e.gold}🪙`);
+          if (e.gold && e.gold < 0)  parts.push(`${e.gold}🪙`);
+          if (e.energy && e.energy > 0) parts.push(`+${e.energy}⚡`);
+          if (e.happiness && e.happiness > 0) parts.push(`+${e.happiness} happiness`);
+          if (e.happiness && e.happiness < 0) parts.push(`${e.happiness} happiness`);
+          if (e.constructionDiscount) parts.push("50% build discount active!");
+          if (e.specialCitizen) parts.push(`${e.specialCitizen} citizen gained!`);
+          setFeedback(parts.length > 0 ? parts.join(" · ") : "Done!");
+          onResolved(e as Record<string, unknown>);
+          setTimeout(() => setDismissed(true), 2200);
+        }
+      } catch {
+        setChosen(null);
       }
     });
   }
