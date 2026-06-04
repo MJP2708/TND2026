@@ -1,17 +1,11 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAuth } from "./require-auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
 import { updateQuestProgress } from "./quests";
 import { boostCompanionFromActivity } from "./companion";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 const MOOD_GOLD = 50;
 

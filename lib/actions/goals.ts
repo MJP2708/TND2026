@@ -1,14 +1,8 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAuth } from "./require-auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 async function ownGoal(goalId: string, userId: string) {
   const goal = await db.goal.findFirst({ where: { id: goalId, userId } });

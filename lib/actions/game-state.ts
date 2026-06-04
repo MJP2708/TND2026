@@ -1,16 +1,10 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAuth } from "./require-auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import type { DailyEvent, EventChoice, SpecialCitizen, SpecialCitizenType, EraType } from "@/lib/types";
 import { getHappinessMultiplier, STREAK_MILESTONES as MILESTONES } from "@/lib/game-utils";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 function clampHappiness(h: number) {
   return Math.max(0, Math.min(100, h));

@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAuth } from "./require-auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
@@ -14,12 +14,6 @@ import {
 import { getHappinessMultiplier } from "@/lib/game-utils";
 import { calcNewStreak } from "@/lib/streak-utils";
 import { rateLimit } from "@/lib/rate-limit";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 // Gold awarded by task difficulty (priority proxy)
 // low (1-2) = 10, medium (3) = 20, high (4-5) = 35

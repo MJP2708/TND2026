@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAuth } from "./require-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
@@ -15,12 +15,6 @@ import {
 import { getHappinessMultiplier } from "@/lib/game-utils";
 import { calcNewStreak } from "@/lib/streak-utils";
 import { rateLimit } from "@/lib/rate-limit";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 const SessionSchema = z.object({
   taskId: z.string().optional(),

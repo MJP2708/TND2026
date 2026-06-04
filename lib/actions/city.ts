@@ -1,18 +1,12 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAuth } from "./require-auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
 import { ITEM_CATALOG } from "./shop";
 import type { DistrictType } from "@/lib/types";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 const SELL_REFUND_RATE = 0.5;
 

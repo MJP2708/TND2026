@@ -1,15 +1,9 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAuth } from "./require-auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { applyHappinessDelta } from "./game-state";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 // Gold maintenance cost per tier per week
 const MAINTENANCE_COST_BY_TIER: Record<number, number> = {

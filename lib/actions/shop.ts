@@ -1,18 +1,12 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireAuth } from "./require-auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAchievements } from "./achievements";
 import { checkEraProgression, applyHappinessDelta } from "./game-state";
 import { rateLimit } from "@/lib/rate-limit";
 import type { EraType, DistrictType } from "@/lib/types";
-
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 export type CatalogItem = {
   name: string;
