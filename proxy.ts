@@ -1,29 +1,25 @@
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { auth } from "@/auth";
+import { authConfig } from "./auth.config";
 
-// Public paths that don't need auth
+const { auth } = NextAuth(authConfig);
+
 const PUBLIC_PATHS = ["/", "/login", "/onboarding"];
 const ASSET_PATTERN = /^(\/_next\/|\/favicon|\/api\/auth)/;
 
-export async function proxy(request: NextRequest) {
+export const proxy = auth((request) => {
   const { pathname } = request.nextUrl;
+  const session = request.auth;
 
-  // Skip assets and auth API
   if (ASSET_PATTERN.test(pathname)) return NextResponse.next();
 
-  // Public pages
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
-    const session = await auth();
-    // Redirect logged-in users away from login/onboarding
     if (session && (pathname === "/login" || pathname.startsWith("/onboarding"))) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
     return NextResponse.next();
   }
 
-  // All other routes require auth
-  const session = await auth();
   if (!session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
@@ -31,7 +27,7 @@ export async function proxy(request: NextRequest) {
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [
