@@ -102,7 +102,7 @@ export function DailyEventCard({ event, onResolved }: Props) {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          {event.choices.map((choice, i) => (
+          {(event.choices ?? []).map((choice, i) => (
             <button
               key={i}
               onClick={() => handleChoice(i)}

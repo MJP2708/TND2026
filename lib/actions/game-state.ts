@@ -352,7 +352,9 @@ export async function getTodayEvent(userId: string): Promise<DailyEvent | null> 
   const gs = await getOrCreateGameState(userId);
 
   if (gs.todayEventDate === today && gs.todayEvent) {
-    return gs.todayEvent as DailyEvent;
+    const stored = gs.todayEvent as { choices?: unknown };
+    if (Array.isArray(stored.choices)) return gs.todayEvent as DailyEvent;
+    // Stored event is malformed — fall through to regenerate
   }
 
   // Generate deterministically from date + userId

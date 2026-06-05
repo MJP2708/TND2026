@@ -84,8 +84,10 @@ export default function DashboardPage() {
     state.specialCitizens.forEach((c) => activeBonuses.push(`${c.name}: ${c.bonus}`));
   }
 
-  // Today's event — only show if date matches
-  const showEvent = state.todayEvent && state.todayEventDate === today;
+  // Today's event — only show if date matches and event has valid choices
+  const showEvent = state.todayEvent &&
+    Array.isArray((state.todayEvent as { choices?: unknown }).choices) &&
+    state.todayEventDate === today;
 
   function toggleTask(id: string) {
     const task = tasks.find((t) => t.id === id);
