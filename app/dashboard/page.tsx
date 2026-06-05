@@ -16,6 +16,7 @@ import { DailyEventCard } from "@/components/game/DailyEventCard";
 import { StreakMilestone } from "@/components/game/StreakMilestone";
 import { HappinessBar } from "@/components/game/HappinessBar";
 import { BurnoutCard } from "@/components/game/BurnoutCard";
+import { MoodCheckInCard } from "@/components/game/MoodCheckInCard";
 import { CompletionSheet } from "@/components/game/CompletionSheet";
 import type { DailyEvent } from "@/lib/types";
 
@@ -255,6 +256,9 @@ export default function DashboardPage() {
           <div className="fv-card animate-fade-up" style={{ marginBottom: 14, padding: "10px 14px" }}>
             <HappinessBar happiness={state.happiness} compact />
           </div>
+
+          {/* ── Mood check-in ── */}
+          <MoodCheckInCard />
 
           {/* ── Burnout detection card ── */}
           <BurnoutCard />
