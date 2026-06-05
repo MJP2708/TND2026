@@ -80,12 +80,14 @@ export async function savePlan(tasks: {
   return { goalId: newGoal.id };
 }
 
-export async function completeTask(taskId: string) {
+export async function completeTask(taskId: string, completionPct = 100) {
   const userId = await requireAuth();
 
   if (!rateLimit.generic(userId)) return { error: "Too many requests — slow down" };
 
   const today = new Date().toISOString().slice(0, 10);
+  const pct = Math.min(Math.max(Math.round(completionPct / 10) * 10, 10), 100);
+  const isFullyDone = pct === 100;
 
   let finalGold = 0;
   let taskXp = 0;
@@ -101,28 +103,35 @@ export async function completeTask(taskId: string) {
       const user = await tx.user.findUnique({ where: { id: userId } });
       if (!user) throw new Error("User not found");
 
-      const streak = calcNewStreak(user.lastActiveDate, user.streak);
+      const streak = isFullyDone ? calcNewStreak(user.lastActiveDate, user.streak) : user.streak;
       const happinessMultiplier = getHappinessMultiplier(user.happiness ?? 50);
       const baseGold = goldByPriority(task.difficulty);
-      const gold = Math.floor((task.gold + baseGold) * happinessMultiplier);
+      const fullGold = Math.floor((task.gold + baseGold) * happinessMultiplier);
+      const gold = Math.floor(fullGold * (pct / 100));
+      const xp   = Math.floor(task.xp * (pct / 100));
 
       await tx.task.update({
         where: { id: taskId },
-        data: { status: "completed", completion: 100, focusMinutes: task.minutes, updatedAt: new Date() },
+        data: {
+          status: isFullyDone ? "completed" : "pending",
+          completion: pct,
+          focusMinutes: isFullyDone ? task.minutes : task.focusMinutes,
+          updatedAt: new Date(),
+        },
       });
 
       await tx.user.update({
         where: { id: userId },
         data: {
           gold: { increment: gold },
-          xp: { increment: task.xp },
-          focusMinutes: { increment: task.minutes },
-          streak,
-          lastActiveDate: today,
+          xp: { increment: xp },
+          focusMinutes: isFullyDone ? { increment: task.minutes } : undefined,
+          streak: isFullyDone ? streak : undefined,
+          lastActiveDate: isFullyDone ? today : undefined,
         },
       });
 
-      return { gold, xp: task.xp, streak, oldStreak: user.streak };
+      return { gold, xp, streak, oldStreak: user.streak };
     });
 
     finalGold = result.gold;
@@ -150,7 +159,7 @@ export async function completeTask(taskId: string) {
   revalidatePath("/plan");
   revalidatePath("/dashboard");
 
-  return { gold: finalGold, xp: taskXp, streak: newStreak };
+  return { gold: finalGold, xp: taskXp, streak: newStreak, completionPct: pct };
 }
 
 export async function loadUserPlan() {

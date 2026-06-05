@@ -73,26 +73,33 @@ model User {
   lastLoginDate  String?
   loginStreak    Int       @default(0)
 
-  accounts        Account[]
-  sessions        Session[]
-  goals           Goal[]
-  tasks           Task[]
-  focusSessions   FocusSession[]
-  city            City?
-  purchases       Purchase[]
-  moods           MoodCheckIn[]
-  achievements    UserAchievement[]
-  posts           Post[]
-  comments        Comment[]
-  likes           Like[]
-  sentMessages    Message[]
-  chatMembers     ChatMember[]
-  notifications   Notification[]
-  friendsSent     Friend[]  @relation("FriendRequester")
-  friendsReceived Friend[]  @relation("FriendTarget")
-  companion       Companion?
-  userDailyQuests UserDailyQuest[]
-  gameState       GameState?
+  plan           String    @default("free")
+  planExpiry     DateTime?
+
+  accounts            Account[]
+  sessions            Session[]
+  goals               Goal[]
+  tasks               Task[]
+  focusSessions       FocusSession[]
+  city                City?
+  purchases           Purchase[]
+  moods               MoodCheckIn[]
+  achievements        UserAchievement[]
+  posts               Post[]
+  comments            Comment[]
+  likes               Like[]
+  sentMessages        Message[]
+  chatMembers         ChatMember[]
+  notifications       Notification[]
+  friendsSent         Friend[]  @relation("FriendRequester")
+  friendsReceived     Friend[]  @relation("FriendTarget")
+  companion           Companion?
+  userDailyQuests     UserDailyQuest[]
+  gameState           GameState?
+  customRewards       CustomReward[]
+  neighborhoodPosts   NeighborhoodPost[]
+  neighborhoodReplies NeighborhoodReply[]
+  neighborhoodLikes   NeighborhoodLike[]
 }
 
 // ── Goals & Tasks ─────────────────────────────────────────────────────────────
@@ -394,4 +401,62 @@ model UserDailyQuest {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questKey, dateKey])
+}
+
+// ── Custom Personal Rewards ───────────────────────────────────────────────────
+
+model CustomReward {
+  id            String    @id @default(cuid())
+  userId        String
+  title         String
+  description   String?
+  coinsRequired Int
+  icon          String    @default("🎁")
+  unlockedAt    DateTime?
+  claimedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ── Anonymous Neighborhood ────────────────────────────────────────────────────
+
+model NeighborhoodPost {
+  id            String             @id @default(cuid())
+  userId        String
+  content       String             @db.VarChar(500)
+  goalTag       String?
+  anonymousName String
+  likesCount    Int                @default(0)
+  createdAt     DateTime           @default(now())
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies       NeighborhoodReply[]
+  likedBy       NeighborhoodLike[]
+
+  @@index([createdAt])
+  @@index([goalTag])
+}
+
+model NeighborhoodReply {
+  id            String          @id @default(cuid())
+  postId        String
+  userId        String
+  content       String          @db.VarChar(300)
+  anonymousName String
+  createdAt     DateTime        @default(now())
+  post          NeighborhoodPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model NeighborhoodLike {
+  id     String          @id @default(cuid())
+  postId String
+  userId String
+  post   NeighborhoodPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { FVShell } from "@/components/focusville/FVShell";
@@ -14,6 +15,8 @@ import { LoginRewardModal } from "@/components/game/LoginRewardModal";
 import { DailyEventCard } from "@/components/game/DailyEventCard";
 import { StreakMilestone } from "@/components/game/StreakMilestone";
 import { HappinessBar } from "@/components/game/HappinessBar";
+import { BurnoutCard } from "@/components/game/BurnoutCard";
+import { CompletionSheet } from "@/components/game/CompletionSheet";
 import type { DailyEvent } from "@/lib/types";
 
 function todayKey() { return new Date().toISOString().slice(0, 10); }
@@ -44,10 +47,13 @@ const TASK_CATEGORY_COLORS: Record<string, string> = {
   other:    "#FFAD5E",
 };
 
+type PendingTask = { id: string; title: string; gold: number; xp: number } | null;
+
 export default function DashboardPage() {
   const { state, patch, ready } = useStore();
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
+  const [pendingTask, setPendingTask] = useState<PendingTask>(null);
 
   if (!ready) {
     return (
@@ -83,27 +89,48 @@ export default function DashboardPage() {
   function toggleTask(id: string) {
     const task = state.tasks.find((t) => t.id === id);
     if (!task || task.status === "completed") return;
+    setPendingTask({ id: task.id, title: task.title, gold: task.gold, xp: task.xp });
+  }
+
+  function confirmCompletion(pct: number) {
+    const task = pendingTask;
+    setPendingTask(null);
+    if (!task) return;
+
     const today = new Date().toISOString().slice(0, 10);
+    const earnedGold = Math.floor(task.gold * (pct / 100));
+    const earnedXp   = Math.floor(task.xp   * (pct / 100));
+    const isFullDone = pct === 100;
+
     patch((s) => {
       const last = s.lastActiveDate;
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yStr = yesterday.toISOString().slice(0, 10);
-      const newStreak = last === today ? s.streak : last === yStr ? s.streak + 1 : 1;
+      const newStreak = isFullDone
+        ? (last === today ? s.streak : last === yStr ? s.streak + 1 : 1)
+        : s.streak;
       return {
         ...s,
-        gold: s.gold + task.gold,
-        xp: s.xp + task.xp,
-        focusMinutes: s.focusMinutes + task.minutes,
+        gold: s.gold + earnedGold,
+        xp: s.xp + earnedXp,
         streak: newStreak,
-        lastActiveDate: today,
+        lastActiveDate: isFullDone ? today : s.lastActiveDate,
         tasks: s.tasks.map((t) =>
-          t.id === id ? { ...t, status: "completed", completion: 100 } : t
+          t.id === task.id
+            ? { ...t, status: isFullDone ? "completed" : "pending", completion: pct }
+            : t
         ),
       };
     });
-    fvToast.reward(`✅ ${task.title}`, task.gold, task.xp);
-    completeTaskDB(id).catch(() => {});
+
+    if (isFullDone) {
+      fvToast.reward(`✅ ${task.title}`, earnedGold, earnedXp);
+    } else {
+      fvToast.success(`✨ ${pct}% done! +${earnedGold} 🪙 — every bit counts`);
+    }
+
+    completeTaskDB(task.id, pct).catch(() => {});
   }
 
   function handleEventResolved(effect: Record<string, unknown>) {
@@ -225,6 +252,9 @@ export default function DashboardPage() {
           <div className="fv-card animate-fade-up" style={{ marginBottom: 14, padding: "10px 14px" }}>
             <HappinessBar happiness={state.happiness} compact />
           </div>
+
+          {/* ── Burnout detection card ── */}
+          <BurnoutCard />
 
           {/* ── Streak milestone track ── */}
           {state.streak > 0 && <StreakMilestone streak={state.streak} />}
@@ -363,6 +393,16 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {pendingTask && (
+        <CompletionSheet
+          taskTitle={pendingTask.title}
+          baseGold={pendingTask.gold}
+          baseXp={pendingTask.xp}
+          onConfirm={confirmCompletion}
+          onClose={() => setPendingTask(null)}
+        />
+      )}
     </FVShell>
   );
 }

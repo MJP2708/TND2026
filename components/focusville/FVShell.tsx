@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Map, Timer, Building2, User } from "lucide-react";
+import { Home, Map, Timer, Building2, User, ShoppingBag, Gift, Users } from "lucide-react";
 import { ActiveSessionBanner } from "@/components/game/ActiveSessionBanner";
 import { useLocale } from "next-intl";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
@@ -15,11 +15,14 @@ interface FVShellProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/dashboard",  label: "Home",    Icon: Home     },
-  { href: "/plan",       label: "Plan",    Icon: Map      },
-  { href: "/focus",      label: "Focus",   Icon: Timer    },
-  { href: "/community",  label: "City",    Icon: Building2 },
-  { href: "/progress",   label: "Profile", Icon: User     },
+  { href: "/dashboard",     label: "Home",         Icon: Home         },
+  { href: "/plan",          label: "Plan",         Icon: Map          },
+  { href: "/focus",         label: "Focus",        Icon: Timer        },
+  { href: "/community",     label: "City",         Icon: Building2    },
+  { href: "/shop",          label: "Shop",         Icon: ShoppingBag  },
+  { href: "/rewards",       label: "Rewards",      Icon: Gift         },
+  { href: "/neighborhood",  label: "Neighbors",    Icon: Users        },
+  { href: "/progress",      label: "Profile",      Icon: User         },
 ];
 
 export function FVShell({ children, hideNav, className, showLangToggle = false }: FVShellProps) {
@@ -35,7 +38,15 @@ export function FVShell({ children, hideNav, className, showLangToggle = false }
 
       {!hideNav && (
         <nav className="fv-navbar">
-          <div className="fv-navbar-grid">
+          <div style={{
+            display: "flex",
+            overflowX: "auto",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+            WebkitOverflowScrolling: "touch",
+            padding: "0 4px",
+            gap: 0,
+          }}>
             {NAV_ITEMS.map(({ href, label, Icon }) => {
               const active = pathname === href || pathname.startsWith(href + "/");
               return (
@@ -43,6 +54,7 @@ export function FVShell({ children, hideNav, className, showLangToggle = false }
                   key={href}
                   href={href}
                   className={`fv-nav-item ${active ? "active" : ""}`}
+                  style={{ minWidth: 56, flexShrink: 0 }}
                 >
                   <div className="fv-nav-icon">
                     <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
