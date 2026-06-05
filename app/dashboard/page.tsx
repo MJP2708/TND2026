@@ -7,7 +7,8 @@ import { FVShell } from "@/components/focusville/FVShell";
 import { Mascot } from "@/components/focusville/Mascot";
 import { Bell, CheckCircle2, Clock, ChevronRight } from "lucide-react";
 import { fvToast } from "@/lib/toast";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { completeTask as completeTaskDB } from "@/lib/actions/tasks";
 import { QuestPanel } from "@/components/game/QuestPanel";
 import { CompanionCard } from "@/components/game/CompanionCard";
@@ -54,6 +55,7 @@ export default function DashboardPage() {
   const { state, patch, ready } = useStore();
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
+  const locale = useLocale();
   const [pendingTask, setPendingTask] = useState<PendingTask>(null);
 
   if (!ready) {
@@ -176,10 +178,13 @@ export default function DashboardPage() {
                 <span>{state.xp.toLocaleString()}</span>
               </div>
             </div>
-            <button style={{ background: "none", border: "none", cursor: "pointer", position: "relative", padding: 4 }}>
-              <Bell size={20} color="#6B7A99" />
-              <div className="fv-dot" style={{ position: "absolute", top: 2, right: 2 }} />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <LanguageToggle currentLocale={locale} compact />
+              <button style={{ background: "none", border: "none", cursor: "pointer", position: "relative", padding: 4 }}>
+                <Bell size={20} color="#6B7A99" />
+                <div className="fv-dot" style={{ position: "absolute", top: 2, right: 2 }} />
+              </button>
+            </div>
           </div>
 
           <div className="row gap-12">
