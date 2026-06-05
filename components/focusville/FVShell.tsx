@@ -58,7 +58,7 @@ export function FVShell({ children, hideNav, className, showLangToggle = false }
                   onClick={() => setShowMore(false)}
                 >
                   <div className="fv-nav-icon">
-                    <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+                    <Icon size={18} strokeWidth={active ? 2.5 : 1.8} />
                   </div>
                   <span>{label}</span>
                 </Link>
@@ -73,8 +73,8 @@ export function FVShell({ children, hideNav, className, showLangToggle = false }
             >
               <div className="fv-nav-icon">
                 {showMore
-                  ? <X size={20} strokeWidth={2.5} />
-                  : <Grid3x3 size={20} strokeWidth={isMoreActive ? 2.5 : 1.8} />}
+                  ? <X size={18} strokeWidth={2.5} />
+                  : <Grid3x3 size={18} strokeWidth={isMoreActive ? 2.5 : 1.8} />}
               </div>
               <span>More</span>
             </button>
