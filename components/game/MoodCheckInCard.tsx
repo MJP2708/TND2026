@@ -4,20 +4,22 @@ import { useState, useTransition } from "react";
 import { useStore } from "@/lib/store";
 import { saveMoodCheckIn } from "@/lib/actions/mood";
 import { fvToast } from "@/lib/toast";
+import { useTranslations } from "next-intl";
 
-const MOODS = [
-  { label: "Great",       emoji: "😄", tone: "rested"    },
-  { label: "Good",        emoji: "🙂", tone: "rested"    },
-  { label: "Okay",        emoji: "😐", tone: "steady"    },
-  { label: "Tired",       emoji: "😴", tone: "tired"     },
-  { label: "Stressed",    emoji: "😰", tone: "overloaded"},
-  { label: "Overwhelmed", emoji: "😫", tone: "overloaded"},
+const MOOD_KEYS = [
+  { key: "mood_great", emoji: "😄", tone: "rested"    },
+  { key: "mood_good",  emoji: "🙂", tone: "rested"    },
+  { key: "mood_okay",  emoji: "😐", tone: "steady"    },
+  { key: "mood_tired", emoji: "😴", tone: "tired"     },
+  { key: "mood_stressed",    emoji: "😰", tone: "overloaded" },
+  { key: "mood_overwhelmed", emoji: "😫", tone: "overloaded" },
 ] as const;
 
-type Tone = typeof MOODS[number]["tone"];
+type Tone = "rested" | "steady" | "tired" | "overloaded";
 
 export function MoodCheckInCard() {
   const { state, patch } = useStore();
+  const t = useTranslations("mood");
   const [selected, setSelected] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -38,15 +40,15 @@ export function MoodCheckInCard() {
         border: "1px solid #B8EDCA",
       }}>
         <span style={{ fontSize: "1.3rem" }}>
-          {MOODS.find(m => m.label === latestMood?.answers?.[0])?.emoji ?? "💚"}
+          {MOOD_KEYS.find(m => t(m.key) === latestMood?.answers?.[0])?.emoji ?? "💚"}
         </span>
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontWeight: 700, fontSize: "0.78rem", color: "#059669" }}>
-            Mood checked in today ✓
+            {t("card_checked")}
           </p>
           {latestMood && (
             <p style={{ margin: 0, fontSize: "0.68rem", color: "#6B7A99" }}>
-              {latestMood.answers?.[0]} · 🪙 +{latestMood.goldAwarded} earned
+              {latestMood.answers?.[0]} · 🪙 +{latestMood.goldAwarded} {t("earned_note")}
             </p>
           )}
         </div>
@@ -54,9 +56,10 @@ export function MoodCheckInCard() {
     );
   }
 
-  function handleSelect(mood: typeof MOODS[number]) {
+  function handleSelect(mood: typeof MOOD_KEYS[number]) {
     if (isPending) return;
-    setSelected(mood.label);
+    const label = t(mood.key);
+    setSelected(label);
     const isBurnout = mood.tone === "overloaded";
 
     startTransition(async () => {
@@ -69,14 +72,14 @@ export function MoodCheckInCard() {
             id: `m-${Date.now()}`,
             date: new Date().toISOString(),
             tone: mood.tone as Tone,
-            answers: [mood.label],
+            answers: [label],
             goldAwarded: 50,
           },
           ...(s.moods ?? []),
         ],
       }));
 
-      const result = await saveMoodCheckIn(mood.label, isBurnout);
+      const result = await saveMoodCheckIn(label, isBurnout);
       if ("error" in result) {
         fvToast.error(result.error ?? "Failed to save mood");
       } else {
@@ -90,7 +93,7 @@ export function MoodCheckInCard() {
     <div className="fv-card animate-fade-up" style={{ marginBottom: 14 }}>
       <div className="row between" style={{ marginBottom: 8 }}>
         <p style={{ margin: 0, fontWeight: 800, fontSize: "0.82rem", color: "#1D2B53" }}>
-          💭 How are you today?
+          💭 {t("card_title")}
         </p>
         <span style={{
           fontSize: "0.68rem", fontWeight: 700, color: "#C17D00",
@@ -102,35 +105,38 @@ export function MoodCheckInCard() {
       </div>
 
       <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}>
-        {MOODS.map((mood) => (
-          <button
-            key={mood.label}
-            onClick={() => handleSelect(mood)}
-            disabled={isPending}
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 3,
-              padding: "8px 2px",
-              borderRadius: 12,
-              border: `1.5px solid ${selected === mood.label ? "#5EA9FF" : "#E8F0FF"}`,
-              background: selected === mood.label ? "#EBF5FF" : "white",
-              cursor: isPending ? "not-allowed" : "pointer",
-              transition: "all 0.15s",
-              opacity: isPending && selected !== mood.label ? 0.5 : 1,
-            }}
-          >
-            <span style={{ fontSize: "1.3rem", lineHeight: 1 }}>{mood.emoji}</span>
-            <span style={{
-              fontSize: "0.54rem", fontWeight: 700,
-              color: selected === mood.label ? "#5EA9FF" : "#6B7A99",
-            }}>
-              {mood.label}
-            </span>
-          </button>
-        ))}
+        {MOOD_KEYS.map((mood) => {
+          const label = t(mood.key);
+          return (
+            <button
+              key={mood.key}
+              onClick={() => handleSelect(mood)}
+              disabled={isPending}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 3,
+                padding: "8px 2px",
+                borderRadius: 12,
+                border: `1.5px solid ${selected === label ? "#5EA9FF" : "#E8F0FF"}`,
+                background: selected === label ? "#EBF5FF" : "white",
+                cursor: isPending ? "not-allowed" : "pointer",
+                transition: "all 0.15s",
+                opacity: isPending && selected !== label ? 0.5 : 1,
+              }}
+            >
+              <span style={{ fontSize: "1.3rem", lineHeight: 1 }}>{mood.emoji}</span>
+              <span style={{
+                fontSize: "0.54rem", fontWeight: 700,
+                color: selected === label ? "#5EA9FF" : "#6B7A99",
+              }}>
+                {label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

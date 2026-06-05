@@ -10,6 +10,7 @@ import {
 import { TrendingUp, ChevronRight } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { getMyAchievements } from "@/lib/actions/achievements";
+import { useTranslations } from "next-intl";
 
 type ProgressTab = "Focus" | "Mood" | "City" | "Achievements";
 
@@ -66,8 +67,16 @@ const CustomTooltip = ({ active, payload, label }: {
 
 export default function ProgressPage() {
   const { state, ready } = useStore();
+  const t = useTranslations("progress");
   const [tab, setTab] = useState<ProgressTab>("Focus");
   const [achievements, setAchievements] = useState<AchievementData[]>([]);
+
+  const TAB_LABELS: Record<ProgressTab, string> = {
+    Focus: t("tab_focus"),
+    Mood: t("tab_mood"),
+    City: t("tab_city"),
+    Achievements: t("tab_achievements"),
+  };
 
   useEffect(() => {
     getMyAchievements().then(setAchievements).catch(() => {});
@@ -111,20 +120,20 @@ export default function ProgressPage() {
           borderBottom: "1px solid #D6E9FF",
         }}>
           <div className="row between" style={{ marginBottom: 4 }}>
-            <h1 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "#1D2B53" }}>Your Progress</h1>
+            <h1 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "#1D2B53" }}>{t("title")}</h1>
             <ChevronRight size={18} color="#6B7A99" />
           </div>
 
           {/* Tab bar */}
           <div className="fv-tabs" style={{ marginTop: 10 }}>
-            {(["Focus", "Mood", "City", "Achievements"] as ProgressTab[]).map((t) => (
+            {(["Focus", "Mood", "City", "Achievements"] as ProgressTab[]).map((tabKey) => (
               <button
-                key={t}
-                className={`fv-tab ${tab === t ? "active" : ""}`}
+                key={tabKey}
+                className={`fv-tab ${tab === tabKey ? "active" : ""}`}
                 style={{ fontSize: "0.72rem" }}
-                onClick={() => setTab(t)}
+                onClick={() => setTab(tabKey)}
               >
-                {t}
+                {TAB_LABELS[tabKey]}
               </button>
             ))}
           </div>
@@ -138,11 +147,11 @@ export default function ProgressPage() {
               <div className="fv-card animate-fade-up" style={{ marginBottom: 12 }}>
                 <div className="row between" style={{ marginBottom: 12 }}>
                   <div>
-                    <p className="fv-label" style={{ margin: "0 0 4px" }}>Focus Hours</p>
+                    <p className="fv-label" style={{ margin: "0 0 4px" }}>{t("focus_hours")}</p>
                     <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#1D2B53" }}>
                       {(thisWeekMins / 60).toFixed(0)}h {thisWeekMins % 60}m
                     </div>
-                    <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "#6B7A99" }}>This Week</p>
+                    <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "#6B7A99" }}>{t("this_week")}</p>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{
@@ -158,7 +167,7 @@ export default function ProgressPage() {
                       color: "#2E9E43",
                     }}>
                       <TrendingUp size={12} />
-                      ↑ {weekChange}% vs last week
+                      {t("vs_last_week", { change: weekChange })}
                     </div>
                   </div>
                 </div>
@@ -196,27 +205,27 @@ export default function ProgressPage() {
                 <div className="fv-card animate-fade-up delay-1">
                   <div style={{ fontSize: "1.3rem", marginBottom: 6 }}>🔥</div>
                   <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#1D2B53" }}>{state.streak}</div>
-                  <div style={{ fontSize: "0.7rem", color: "#6B7A99", fontWeight: 600 }}>Longest Streak</div>
-                  <div style={{ fontSize: "0.68rem", color: "#6B7A99", marginTop: 2 }}>days</div>
+                  <div style={{ fontSize: "0.7rem", color: "#6B7A99", fontWeight: 600 }}>{t("longest_streak")}</div>
+                  <div style={{ fontSize: "0.68rem", color: "#6B7A99", marginTop: 2 }}>{t("tab_focus")}</div>
                 </div>
                 <div className="fv-card animate-fade-up delay-1">
                   <div style={{ fontSize: "1.3rem", marginBottom: 6 }}>⏱</div>
                   <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#1D2B53" }}>{focusHrs}h</div>
-                  <div style={{ fontSize: "0.7rem", color: "#6B7A99", fontWeight: 600 }}>Total Focus Hours</div>
-                  <div style={{ fontSize: "0.68rem", color: "#6B7A99", marginTop: 2 }}>all time</div>
+                  <div style={{ fontSize: "0.7rem", color: "#6B7A99", fontWeight: 600 }}>{t("total_focus")}</div>
+                  <div style={{ fontSize: "0.68rem", color: "#6B7A99", marginTop: 2 }}>{t("all_time")}</div>
                 </div>
               </div>
 
               {/* Achievements preview */}
               <div className="fv-card animate-fade-up delay-2">
                 <div className="row between" style={{ marginBottom: 12 }}>
-                  <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>Achievements</p>
+                  <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>{t("achievements_label")}</p>
                   <button
                     className="fv-btn fv-btn-ghost fv-btn-sm"
                     onClick={() => setTab("Achievements")}
                     style={{ height: 28, fontSize: "0.72rem", color: "#5EA9FF" }}
                   >
-                    View all
+                    {t("view_all")}
                   </button>
                 </div>
                 <div className="row gap-12">
@@ -247,13 +256,13 @@ export default function ProgressPage() {
             <div className="stack gap-12">
               <div className="fv-card animate-fade-up">
                 <p style={{ margin: "0 0 12px", fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
-                  Recent Mood History
+                  {t("recent_mood")}
                 </p>
                 {state.moods.length === 0 ? (
                   <div style={{ textAlign: "center", padding: "20px 0" }}>
                     <Mascot size={48} mood="idle" />
                     <p style={{ margin: "10px 0 0", color: "#6B7A99", fontSize: "0.82rem" }}>
-                      No mood entries yet. Check in daily!
+                      {t("no_mood")}
                     </p>
                   </div>
                 ) : (
@@ -292,10 +301,10 @@ export default function ProgressPage() {
               </div>
               <div className="fv-card animate-fade-up delay-1">
                 <p style={{ margin: "0 0 8px", fontWeight: 800, fontSize: "0.82rem", color: "#1D2B53" }}>
-                  Mood Tips
+                  {t("mood_tips_title")}
                 </p>
                 <p style={{ margin: 0, fontSize: "0.8rem", color: "#6B7A99", lineHeight: 1.6 }}>
-                  Checking in daily helps us tailor your plan. The more you share, the better your AI plan becomes.
+                  {t("mood_tips_body")}
                 </p>
               </div>
             </div>
@@ -340,20 +349,20 @@ export default function ProgressPage() {
                 <div className="fv-stat">
                   <div style={{ fontSize: "1.5rem" }}>🏠</div>
                   <div className="fv-stat-value" style={{ color: "#5EA9FF" }}>Lv.{state.houseLevel}</div>
-                  <div className="fv-stat-label">House Level</div>
+                  <div className="fv-stat-label">{t("house_level")}</div>
                 </div>
                 <div className="fv-stat">
                   <div style={{ fontSize: "1.5rem" }}>🏗</div>
                   <div className="fv-stat-value" style={{ color: "#7EDC8A" }}>
                     {state.businesses.filter((b) => b.level > 0).length}
                   </div>
-                  <div className="fv-stat-label">Buildings</div>
+                  <div className="fv-stat-label">{t("buildings_section")}</div>
                 </div>
               </div>
 
               <div className="fv-card animate-fade-up delay-2">
                 <p style={{ margin: "0 0 12px", fontWeight: 800, fontSize: "0.82rem", color: "#1D2B53" }}>
-                  Buildings
+                  {t("buildings_section")}
                 </p>
                 {state.businesses.map((b) => (
                   <div key={b.id} className="row between gap-8" style={{ marginBottom: 10 }}>
@@ -378,7 +387,7 @@ export default function ProgressPage() {
                       </div>
                     </div>
                     <span className={`fv-badge ${b.level > 0 ? "fv-badge-blue" : "fv-badge-yellow"}`}>
-                      {b.level > 0 ? `Lv.${b.level}` : "Locked"}
+                      {b.level > 0 ? `Lv.${b.level}` : t("locked")}
                     </span>
                   </div>
                 ))}
@@ -391,7 +400,7 @@ export default function ProgressPage() {
               <div className="fv-card animate-fade-up">
                 <div className="row between" style={{ marginBottom: 12 }}>
                   <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
-                    All Achievements
+                    {t("all_achievements")}
                   </p>
                   <span className="fv-badge fv-badge-blue">
                     {achievements.filter((a) => a.unlocked).length}/{achievements.length}
@@ -442,7 +451,7 @@ export default function ProgressPage() {
               <div className="fv-card animate-fade-up delay-1">
                 <div className="row between" style={{ marginBottom: 8 }}>
                   <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
-                    Level {state.level}
+                    {t("level_label", { level: state.level })}
                   </p>
                   <span style={{ fontSize: "0.75rem", color: "#6B7A99", fontWeight: 600 }}>
                     {state.xp} XP
@@ -455,7 +464,7 @@ export default function ProgressPage() {
                   />
                 </div>
                 <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99" }}>
-                  {500 - (state.xp % 500)} XP to Level {state.level + 1}
+                  {t("xp_to_next", { xp: 500 - (state.xp % 500), next: state.level + 1 })}
                 </p>
               </div>
 
@@ -464,12 +473,12 @@ export default function ProgressPage() {
                 <div className="fv-stat">
                   <div style={{ fontSize: "1.4rem" }}>🪙</div>
                   <div className="fv-stat-value" style={{ color: "#C17D00" }}>{state.gold}</div>
-                  <div className="fv-stat-label">Total Gold</div>
+                  <div className="fv-stat-label">{t("total_gold")}</div>
                 </div>
                 <div className="fv-stat">
                   <div style={{ fontSize: "1.4rem" }}>✅</div>
                   <div className="fv-stat-value" style={{ color: "#2E9E43" }}>{doneTasks}</div>
-                  <div className="fv-stat-label">Tasks Done</div>
+                  <div className="fv-stat-label">{t("tasks_done_label")}</div>
                 </div>
               </div>
             </div>

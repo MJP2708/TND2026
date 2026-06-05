@@ -11,6 +11,7 @@ import { Mascot } from "@/components/focusville/Mascot";
 import { GoalCountdown } from "@/components/game/GoalCountdown";
 import { ChevronLeft, Calendar, Sparkles, Clock, CheckCircle2, Play } from "lucide-react";
 import type { Goal, GoalCategory, EnergyLevel, DifficultyLevel, Task } from "@/lib/types";
+import { useTranslations } from "next-intl";
 
 type Step = "goal" | "planning" | "plan";
 
@@ -38,6 +39,8 @@ function groupByCategory(tasks: ReturnType<typeof generatePlan>) {
 export default function PlanPage() {
   const { state, patch, ready } = useStore();
   const router = useRouter();
+  const t = useTranslations("plan");
+  const tCommon = useTranslations("common");
 
   const [step, setStep] = useState<Step>(state.goal ? "plan" : "goal");
   const [goalText, setGoalText] = useState(state.goal?.title ?? "");
@@ -115,7 +118,7 @@ export default function PlanPage() {
       <FVShell>
         <div className="fv-loading">
           <Mascot size={60} mood="idle" float />
-          <p style={{ color: "#6B7A99", fontSize: "0.85rem" }}>Loading your plan…</p>
+          <p style={{ color: "#6B7A99", fontSize: "0.85rem" }}>{t("loading")}</p>
         </div>
       </FVShell>
     );
@@ -131,16 +134,16 @@ export default function PlanPage() {
             className="fv-btn fv-btn-ghost fv-btn-sm"
             style={{ marginBottom: 16, gap: 4 }}
           >
-            <ChevronLeft size={16} /> Back
+            <ChevronLeft size={16} /> {t("back")}
           </button>
 
           <div className="animate-fade-up" style={{ textAlign: "center", marginBottom: 24 }}>
             <Mascot size={72} mood="thinking" float />
             <h1 style={{ margin: "12px 0 4px", fontSize: "1.7rem", fontWeight: 900, color: "#1D2B53" }}>
-              What&apos;s your big goal? 🌱
+              {t("goal_title")}
             </h1>
             <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.88rem" }}>
-              We&apos;ll break it down into manageable steps
+              {t("goal_subtitle")}
             </p>
           </div>
 
@@ -148,12 +151,12 @@ export default function PlanPage() {
             <div className="stack gap-16">
               <div className="stack gap-8">
                 <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>
-                  Example: Prepare for medical school entrance exam
+                  {t("goal_label")}
                 </label>
                 <textarea
                   className="fv-textarea"
                   rows={3}
-                  placeholder="Your goal here..."
+                  placeholder={t("goal_placeholder")}
                   value={goalText}
                   onChange={(e) => setGoalText(e.target.value)}
                   style={{ minHeight: 90 }}
@@ -163,7 +166,7 @@ export default function PlanPage() {
               <div className="stack gap-8">
                 <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>
                   <Calendar size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} />
-                  Deadline
+                  {t("deadline")}
                 </label>
                 <input
                   type="date"
@@ -175,7 +178,7 @@ export default function PlanPage() {
               </div>
 
               <div className="stack gap-8">
-                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>Category</label>
+                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>{t("category")}</label>
                 <div className="row gap-8 cluster">
                   {(Object.entries(CATEGORY_ICONS) as [GoalCategory, string][]).map(([cat, icon]) => (
                     <button
@@ -197,7 +200,7 @@ export default function PlanPage() {
               </div>
 
               <div className="stack gap-8">
-                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>Daily energy level</label>
+                <label style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1D2B53" }}>{t("energy_level")}</label>
                 <div className="row gap-8">
                   {(["low", "balanced", "high"] as EnergyLevel[]).map((lvl) => (
                     <button
@@ -209,10 +212,9 @@ export default function PlanPage() {
                         background: energy === lvl ? "#5EA9FF" : "white",
                         color: energy === lvl ? "white" : "#6B7A99",
                         border: `2px solid ${energy === lvl ? "#5EA9FF" : "#D6E9FF"}`,
-                        textTransform: "capitalize",
                       }}
                     >
-                      {lvl === "low" ? "🌙 Easy" : lvl === "balanced" ? "⚡ Balanced" : "🔥 Intense"}
+                      {lvl === "low" ? t("energy_easy") : lvl === "balanced" ? t("energy_balanced") : t("energy_intense")}
                     </button>
                   ))}
                 </div>
@@ -223,7 +225,7 @@ export default function PlanPage() {
                 disabled={!goalText.trim()}
                 onClick={() => setStep("planning")}
               >
-                Continue →
+                {t("continue")}
               </button>
             </div>
           </div>
@@ -256,7 +258,7 @@ export default function PlanPage() {
             className="fv-btn fv-btn-ghost fv-btn-sm"
             style={{ marginBottom: 16, gap: 4 }}
           >
-            <ChevronLeft size={16} /> Back
+            <ChevronLeft size={16} /> {t("back")}
           </button>
 
           <div className="animate-fade-up" style={{ textAlign: "center", marginBottom: 20 }}>
@@ -273,10 +275,10 @@ export default function PlanPage() {
               <Sparkles size={24} color="white" />
             </div>
             <h1 style={{ margin: "0 0 4px", fontSize: "1.5rem", fontWeight: 900, color: "#1D2B53" }}>
-              AI Strategic Plan
+              {t("ai_title")}
             </h1>
             <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.85rem" }}>
-              I&apos;ve broken your goal into manageable steps!
+              {t("ai_subtitle")}
             </p>
           </div>
 
@@ -285,16 +287,16 @@ export default function PlanPage() {
             <div className="row gap-16" style={{ justifyContent: "space-around" }}>
               <div style={{ textAlign: "center" }}>
                 <p style={{ margin: 0, fontSize: "1.8rem", fontWeight: 900, color: "#1D2B53" }}>
-                  {preview.filter((t) => !t.isRecovery).length}
+                  {preview.filter((task) => !task.isRecovery).length}
                 </p>
-                <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99", fontWeight: 600 }}>Total Tasks</p>
+                <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99", fontWeight: 600 }}>{t("total_tasks")}</p>
               </div>
               <div style={{ width: 1, background: "#D6E9FF" }} />
               <div style={{ textAlign: "center" }}>
                 <p style={{ margin: 0, fontSize: "1.8rem", fontWeight: 900, color: "#5EA9FF" }}>
                   {pHours}h
                 </p>
-                <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99", fontWeight: 600 }}>Est. Focus Hours</p>
+                <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99", fontWeight: 600 }}>{t("est_hours")}</p>
               </div>
             </div>
           </div>
@@ -302,7 +304,7 @@ export default function PlanPage() {
           {/* Plan Preview */}
           <div className="fv-card animate-fade-up delay-2" style={{ marginBottom: 16 }}>
             <p style={{ margin: "0 0 12px", fontWeight: 800, fontSize: "0.78rem", color: "#1D2B53" }}>
-              Plan Preview
+              {t("preview")}
             </p>
             <div className="stack gap-8">
               {pGrouped.slice(0, 5).map(({ cat, count }) => (
@@ -311,7 +313,7 @@ export default function PlanPage() {
                     <span style={{ fontSize: "1.1rem" }}>{CATEGORY_ICONS[cat as GoalCategory] ?? "✨"}</span>
                     <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#1D2B53", textTransform: "capitalize" }}>{cat}</span>
                   </div>
-                  <span style={{ fontSize: "0.8rem", color: "#6B7A99", fontWeight: 600 }}>{count} tasks</span>
+                  <span style={{ fontSize: "0.8rem", color: "#6B7A99", fontWeight: 600 }}>{t("tasks_count", { count })}</span>
                 </div>
               ))}
             </div>
@@ -334,7 +336,6 @@ export default function PlanPage() {
                   createdAt: new Date().toISOString(),
                 };
                 const tasks = generatePlan(newGoal);
-                // Save to DB (best-effort)
                 try {
                   await savePlan(tasks, {
                     title: newGoal.title,
@@ -355,12 +356,12 @@ export default function PlanPage() {
             {generating ? (
               <span className="row gap-8 center" style={{ width: "100%" }}>
                 <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
-                Generating your plan…
+                {t("generating")}
               </span>
             ) : (
               <>
                 <Sparkles size={18} />
-                Generate My Plan
+                {t("generate")}
               </>
             )}
           </button>
@@ -379,13 +380,13 @@ export default function PlanPage() {
       <div style={{ padding: "20px 20px 20px" }}>
         {/* Header */}
         <div className="row between" style={{ marginBottom: 16 }}>
-          <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900, color: "#1D2B53" }}>Your Plan</h1>
+          <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 900, color: "#1D2B53" }}>{t("title")}</h1>
           <button
             className="fv-btn fv-btn-secondary fv-btn-sm"
             onClick={() => setStep("goal")}
             style={{ gap: 4 }}
           >
-            <Sparkles size={14} /> New goal
+            <Sparkles size={14} /> {t("new_goal")}
           </button>
         </div>
 
@@ -413,8 +414,8 @@ export default function PlanPage() {
                 minWidth: 180,
               }}>
                 {[
-                  { label: "⏸ Pause goal",   action: handlePauseGoal,  color: "#1D2B53" },
-                  { label: "🗂 Archive goal", action: handleArchiveGoal, color: "#1D2B53" },
+                  { label: t("pause_goal"),   action: handlePauseGoal,  color: "#1D2B53" },
+                  { label: t("archive_goal"), action: handleArchiveGoal, color: "#1D2B53" },
                 ].map(({ label, action, color }) => (
                   <button
                     key={label}
@@ -454,12 +455,12 @@ export default function PlanPage() {
                       fontFamily: "inherit",
                     }}
                   >
-                    🗑 Delete goal
+                    {t("delete_goal")}
                   </button>
                 ) : (
                   <div style={{ padding: "10px 14px", background: "#FFF5F5" }}>
                     <p style={{ margin: "0 0 8px", fontSize: "0.75rem", fontWeight: 700, color: "#D94040" }}>
-                      Delete goal + all tasks?
+                      {t("confirm_delete")}
                     </p>
                     <div className="row gap-8">
                       <button
@@ -467,14 +468,14 @@ export default function PlanPage() {
                         className="fv-btn fv-btn-sm"
                         style={{ background: "#D94040", color: "white", border: "none", flex: 1, height: 28 }}
                       >
-                        Yes, delete
+                        {t("yes_delete")}
                       </button>
                       <button
                         onClick={() => setConfirmDelete(false)}
                         className="fv-btn fv-btn-ghost fv-btn-sm"
                         style={{ flex: 1, height: 28 }}
                       >
-                        Cancel
+                        {tCommon("cancel")}
                       </button>
                     </div>
                   </div>
@@ -496,14 +497,14 @@ export default function PlanPage() {
         <div className="fv-card animate-fade-up delay-1" style={{ marginBottom: 16 }}>
           <div className="row between" style={{ marginBottom: 12 }}>
             <p style={{ margin: 0, fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
-              Today&apos;s Plan
+              {t("today_plan")}
             </p>
-            <span className="fv-badge fv-badge-blue">{todayDone}/{todayTasks.length} tasks</span>
+            <span className="fv-badge fv-badge-blue">{todayDone}/{todayTasks.length}</span>
           </div>
           <div className="stack gap-8">
             {todayTasks.length === 0 && (
               <p style={{ margin: 0, color: "#6B7A99", fontSize: "0.82rem", textAlign: "center", padding: "12px 0" }}>
-                No tasks scheduled for today 🎉
+                {t("no_tasks_today")}
               </p>
             )}
             {todayTasks.slice(0, 6).map((task) => (
@@ -550,7 +551,7 @@ export default function PlanPage() {
                         borderRadius: 999,
                         padding: "2px 7px",
                         verticalAlign: "middle",
-                      }}>Done</span>
+                      }}>{t("done_badge")}</span>
                     )}
                   </p>
                   <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "#6B7A99" }}>
@@ -578,7 +579,7 @@ export default function PlanPage() {
         {/* Category breakdown */}
         <div className="fv-card animate-fade-up delay-2">
           <p style={{ margin: "0 0 12px", fontWeight: 800, fontSize: "0.85rem", color: "#1D2B53" }}>
-            All Categories
+            {t("all_categories")}
           </p>
           <div className="stack gap-8">
             {grouped.map(({ cat, count, minutes }) => (
@@ -589,7 +590,7 @@ export default function PlanPage() {
                   </div>
                   <div>
                     <p style={{ margin: 0, fontWeight: 700, fontSize: "0.85rem", color: "#1D2B53", textTransform: "capitalize" }}>{cat}</p>
-                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99" }}>{count} tasks</p>
+                    <p style={{ margin: 0, fontSize: "0.72rem", color: "#6B7A99" }}>{t("tasks_count", { count })}</p>
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Map, Timer, Building2, User, ShoppingBag, Gift, Users, Grid3x3, X } from "lucide-react";
 import { ActiveSessionBanner } from "@/components/game/ActiveSessionBanner";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 
 interface FVShellProps {
@@ -15,24 +15,25 @@ interface FVShellProps {
   showLangToggle?: boolean;
 }
 
-const PRIMARY_NAV = [
-  { href: "/dashboard",  label: "Home",   Icon: Home      },
-  { href: "/plan",       label: "Plan",   Icon: Map       },
-  { href: "/focus",      label: "Focus",  Icon: Timer     },
-  { href: "/community",  label: "City",   Icon: Building2 },
-  { href: "/progress",   label: "Profile", Icon: User     },
-];
-
-const MORE_ITEMS = [
-  { href: "/shop",         label: "Shop",        Icon: ShoppingBag, desc: "Buy buildings & upgrades" },
-  { href: "/rewards",      label: "Rewards",     Icon: Gift,        desc: "Set personal real-world rewards" },
-  { href: "/neighborhood", label: "Neighborhood", Icon: Users,      desc: "Anonymous community feed" },
-];
-
 export function FVShell({ children, hideNav, className, showLangToggle = false }: FVShellProps) {
   const pathname = usePathname();
   const locale = useLocale();
+  const t = useTranslations("nav");
   const [showMore, setShowMore] = useState(false);
+
+  const PRIMARY_NAV = [
+    { href: "/dashboard",  label: t("home"),    Icon: Home      },
+    { href: "/plan",       label: t("plan"),    Icon: Map       },
+    { href: "/focus",      label: t("focus"),   Icon: Timer     },
+    { href: "/community",  label: t("city"),    Icon: Building2 },
+    { href: "/progress",   label: t("profile"), Icon: User      },
+  ];
+
+  const MORE_ITEMS = [
+    { href: "/shop",         label: t("shop"),         Icon: ShoppingBag, desc: t("more_shop_desc") },
+    { href: "/rewards",      label: t("rewards"),      Icon: Gift,        desc: t("more_rewards_desc") },
+    { href: "/neighborhood", label: t("neighborhood"), Icon: Users,       desc: t("more_neighborhood_desc") },
+  ];
 
   const isMoreActive = MORE_ITEMS.some(
     (m) => pathname === m.href || pathname.startsWith(m.href + "/")
@@ -76,7 +77,7 @@ export function FVShell({ children, hideNav, className, showLangToggle = false }
                   ? <X size={18} strokeWidth={2.5} />
                   : <Grid3x3 size={18} strokeWidth={isMoreActive ? 2.5 : 1.8} />}
               </div>
-              <span>More</span>
+              <span>{t("more")}</span>
             </button>
           </div>
         </nav>
