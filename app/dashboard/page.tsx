@@ -67,10 +67,11 @@ export default function DashboardPage() {
   }
 
   const today = todayKey();
-  const todayTasks  = state.tasks.filter((t) => t.day === today && !t.isRecovery);
+  const tasks       = state.tasks ?? [];
+  const todayTasks  = tasks.filter((t) => t.day === today && !t.isRecovery);
   const todayDone   = todayTasks.filter((t) => t.status === "completed").length;
-  const totalTasks  = state.tasks.filter((t) => !t.isRecovery).length;
-  const doneTasks   = state.tasks.filter((t) => t.status === "completed").length;
+  const totalTasks  = tasks.filter((t) => !t.isRecovery).length;
+  const doneTasks   = tasks.filter((t) => t.status === "completed").length;
   const planProgress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
   const focusHrs    = (state.focusMinutes / 60).toFixed(1);
 
@@ -87,7 +88,7 @@ export default function DashboardPage() {
   const showEvent = state.todayEvent && state.todayEventDate === today;
 
   function toggleTask(id: string) {
-    const task = state.tasks.find((t) => t.id === id);
+    const task = tasks.find((t) => t.id === id);
     if (!task || task.status === "completed") return;
     setPendingTask({ id: task.id, title: task.title, gold: task.gold, xp: task.xp });
   }
@@ -116,7 +117,7 @@ export default function DashboardPage() {
         xp: s.xp + earnedXp,
         streak: newStreak,
         lastActiveDate: isFullDone ? today : s.lastActiveDate,
-        tasks: s.tasks.map((t) =>
+        tasks: (s.tasks ?? []).map((t) =>
           t.id === task.id
             ? { ...t, status: isFullDone ? "completed" : "pending", completion: pct }
             : t

@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useStore } from "@/lib/store";
+
 import { FVShell } from "@/components/focusville/FVShell";
 import { Gift, Plus, Trash2, CheckCircle2, Lock } from "lucide-react";
 import {
@@ -27,9 +28,8 @@ type Reward = {
 const ICON_OPTIONS = ["🎬", "🛍", "🍕", "🎮", "☕", "✈️", "🎵", "📚", "🏋️", "😴", "🎁", "🍦"];
 
 export default function RewardsPage() {
-  const { state } = useStore();
+  const { state, patch } = useStore();
   const [rewards, setRewards] = useState<Reward[]>([]);
-  const [gold, setGold] = useState(state.gold);
   const [showAdd, setShowAdd] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -43,12 +43,8 @@ export default function RewardsPage() {
   useEffect(() => {
     getUserRewards().then((d) => {
       setRewards(d.rewards as Reward[]);
-      setGold(d.gold);
     });
   }, []);
-
-  // keep gold in sync with store
-  useEffect(() => { setGold(state.gold); }, [state.gold]);
 
   function handleCreate() {
     if (!form.title.trim()) return;
@@ -72,13 +68,13 @@ export default function RewardsPage() {
   }
 
   function handleClaim(reward: Reward) {
-    if (reward.claimedAt || gold < reward.coinsRequired) return;
+    if (reward.claimedAt || state.gold < reward.coinsRequired) return;
     startTransition(async () => {
       const result = await claimCustomReward(reward.id);
       if (result.success) {
         confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
         fvToast.success(`🎉 Claimed: ${reward.title}!`);
-        setGold((g) => g - reward.coinsRequired);
+        patch((s) => ({ ...s, gold: s.gold - reward.coinsRequired }));
         setRewards((prev) =>
           prev.map((r) =>
             r.id === reward.id ? { ...r, claimedAt: new Date(), unlockedAt: new Date() } : r
@@ -116,7 +112,7 @@ export default function RewardsPage() {
             </div>
             <div className="fv-gold">
               <span>🪙</span>
-              <span>{gold.toLocaleString()}</span>
+              <span>{state.gold.toLocaleString()}</span>
             </div>
           </div>
           <p style={{ margin: "6px 0 0", fontSize: "0.78rem", color: "#6B7A99" }}>
@@ -219,8 +215,8 @@ export default function RewardsPage() {
 
           <div className="stack gap-10">
             {unclaimed.map((reward) => {
-              const pct = Math.min(100, Math.round((gold / reward.coinsRequired) * 100));
-              const canClaim = gold >= reward.coinsRequired;
+              const pct = Math.min(100, Math.round((state.gold / reward.coinsRequired) * 100));
+              const canClaim = state.gold >= reward.coinsRequired;
 
               return (
                 <div
@@ -265,7 +261,7 @@ export default function RewardsPage() {
 
                   <div className="row between">
                     <span style={{ fontSize: "0.72rem", color: "#6B7A99", fontWeight: 600 }}>
-                      🪙 {gold.toLocaleString()} / {reward.coinsRequired.toLocaleString()}
+                      🪙 {state.gold.toLocaleString()} / {reward.coinsRequired.toLocaleString()}
                     </span>
                     <button
                       className="fv-btn fv-btn-sm"

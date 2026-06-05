@@ -187,20 +187,15 @@ export default function NeighborhoodPage() {
   const [composeTag, setComposeTag] = useState<GoalTag | null>(null);
   const [isPro, setIsPro] = useState<boolean | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [loading, setLoading] = useState(true);
 
   const loadPosts = useCallback((tag?: GoalTag | null) => {
-    setLoading(true);
-    getNeighborhoodPosts(tag ?? undefined).then((data) => {
+    startTransition(async () => {
+      const data = await getNeighborhoodPosts(tag ?? undefined);
       setPosts(data as Post[]);
-      setLoading(false);
     });
   }, []);
 
   useEffect(() => {
-    // Check if user is pro by attempting a post (will return pro_required if not)
-    // We do a lightweight check via the posts fetch (any user can read)
-    setIsPro(null);
     loadPosts(filterTag);
   }, [filterTag, loadPosts]);
 
@@ -377,7 +372,7 @@ export default function NeighborhoodPage() {
           )}
 
           {/* Posts feed */}
-          {loading ? (
+          {isPending ? (
             <div className="stack gap-10">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} style={{ height: 100, borderRadius: 14, background: "#F3E8FF", animation: "pulse 1.5s ease-in-out infinite", animationDelay: `${i * 150}ms` }} />

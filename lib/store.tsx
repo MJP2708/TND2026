@@ -35,10 +35,18 @@ export function AppStateProvider({ children, userId }: { children: React.ReactNo
 
   const normalizeState = useCallback((incoming: Partial<AppState>): AppState => {
     const defaults = createDemoState();
+    const arr = <T,>(v: T[] | null | undefined, fallback: T[]): T[] =>
+      Array.isArray(v) ? v : fallback;
     return {
       ...defaults,
       ...incoming,
-      purchasedItems: incoming.purchasedItems ?? defaults.purchasedItems,
+      tasks: arr(incoming.tasks, defaults.tasks),
+      moods: arr(incoming.moods, defaults.moods),
+      purchasedItems: arr(incoming.purchasedItems, defaults.purchasedItems),
+      businesses: arr(incoming.businesses, defaults.businesses),
+      rewards: arr(incoming.rewards, defaults.rewards),
+      vouchers: arr(incoming.vouchers, defaults.vouchers),
+      specialCitizens: arr(incoming.specialCitizens, defaults.specialCitizens),
       lastMoodDate: incoming.lastMoodDate ?? defaults.lastMoodDate,
       themeMode: incoming.themeMode ?? defaults.themeMode,
       uiTone: incoming.uiTone ?? defaults.uiTone,
@@ -49,7 +57,6 @@ export function AppStateProvider({ children, userId }: { children: React.ReactNo
       prestigeCount: incoming.prestigeCount ?? defaults.prestigeCount,
       prestigeMultiplier: incoming.prestigeMultiplier ?? defaults.prestigeMultiplier,
       lastLoginAt: incoming.lastLoginAt ?? defaults.lastLoginAt,
-      specialCitizens: incoming.specialCitizens ?? defaults.specialCitizens,
       todayEvent: incoming.todayEvent ?? defaults.todayEvent,
       todayEventDate: incoming.todayEventDate ?? defaults.todayEventDate,
       totalBuilt: incoming.totalBuilt ?? defaults.totalBuilt,
@@ -90,9 +97,9 @@ export function AppStateProvider({ children, userId }: { children: React.ReactNo
               uiTone: data.user.uiTone,
               language: data.user.language,
               goal: data.goal,
-              tasks: data.tasks,
-              moods: data.moods,
-              purchasedItems: data.purchasedItems,
+              tasks: Array.isArray(data.tasks) ? data.tasks : [],
+              moods: Array.isArray(data.moods) ? data.moods : [],
+              purchasedItems: Array.isArray(data.purchasedItems) ? data.purchasedItems : [],
               hasOnboarded: !!data.goal,
               // Game state
               currentEra: gs?.currentEra ?? "pioneer",
